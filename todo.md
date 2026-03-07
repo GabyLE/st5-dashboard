@@ -9,3 +9,4 @@
 
 - [ ] Activate remote control for the survey?
 - [ ] Add the citric lime survey client and fetch responses from the survey itself (export_response & get_response_by_id)
+- [ ] Add filters that allow for a more nuanced analysis (only companies with number of employees < 100 or so)
