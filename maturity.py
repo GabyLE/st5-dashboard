@@ -1,9 +1,10 @@
-import random 
+import random
 import math
 import pandas as pd
 import string
 import ipaddress
 from datetime import datetime, timedelta
+import numpy as np
 import sys
 
 EPS = 1e-9
@@ -201,15 +202,30 @@ MM_ORIGINAL_DIM_NAMES = ["People and culture",
                          "Technology based products and services",
                          "Industry 4.0 technologies"]
 
-MM_DIM_NAMES = ["Menschen und Kultur für Industrie 5.0",
-                "Bewusstsein für die Prinzipien von Industrie 5.0",
-                "Digitale Strategien für Industrie 5.0",
-                "Wertschöpfungskette und Prozesse für Industrie 5.0",
-                "Intelligente Fertigungstechnologien für Industrie 5.0",
-                "Integration erweiterter technologischer Komponenten in die Abläufe und das Angebot Ihres Unternehmens",
-                "Nutzung etablierter digitaler Technologien für Industrie 5.0"]
+MM_DIM_LONG_NAMES = ["Menschen und Kultur für Industrie 5.0",
+                     "Bewusstsein für die Prinzipien von Industrie 5.0",
+                     "Digitale Strategien für Industrie 5.0",
+                     "Wertschöpfungskette und Prozesse für Industrie 5.0",
+                     "Intelligente Fertigungstechnologien für Industrie 5.0",
+                     "Integration erweiterter technologischer Komponenten in die Abläufe und das Angebot Ihres Unternehmens",
+                     "Nutzung etablierter digitaler Technologien für Industrie 5.0"]
 
-assert len(MM_ORIGINAL_DIM_NAMES) == len(MM_DIM_NAMES) == 7, "Expected seven dimensions"
+MM_DIM_SHORT_NAMES = ["Menschen und Kultur",
+                     "Bewusstsein",
+                     "Digitale Strategien",
+                     "Wertschöpfungskette und Prozesse",
+                     "Intelligente Fertigungstechnologien",
+                     "Technologische Integration",
+                     "Nutzung etablierter Technologien"]
+
+
+MM_NUM_DIMS = 7
+assert len(MM_ORIGINAL_DIM_NAMES) == len(MM_DIM_LONG_NAMES) == len(MM_DIM_SHORT_NAMES) == MM_NUM_DIMS, "Expected seven dimensions"
+
+MM_LEVELS = [("Außenseiter", (1.0, 2.0)),
+             ("Anfänger", (2.0, 3.0)),
+             ("Fortgeschrittener", (3.0, 4.0)),
+             ("Senior", (4.0, 5.0))]
 
 SURVEY_COLUMNS = [col_type_pair[0] for col_type_pair in SURVEY_COLUMNS_AND_TYPES]
 
@@ -414,3 +430,71 @@ def get_scores(df):
     dim_scores_df = pd.concat(dim_scores_list, axis=1)
     df["Maturity_Score"] = dim_scores_df.dot(MM_DIM_WEIGHTS)
     return df
+
+def get_level(score):
+    for name, r in MM_LEVELS:
+        if score >= r[0] and score < r[1]:
+            return name 
+
+    assert False, "Score out of range."
+
+
+def test_score_calculation():
+    choices = [i for i in range(1, 6)]
+    header = [1, "", 8, "", 42, "", "", "", "anzM1", "bran1", "",
+              1, 1, 1, 1, 1, 1, 33]
+    footer = [1 for _ in range(20)]
+    dim1 = [random.choice(choices) for _ in range(len(MM_DIM1_COLUMNS))]
+    dim2 = [random.choice(choices) for _ in range(len(MM_DIM2_COLUMNS))]
+    dim3 = [random.choice(choices) for _ in range(len(MM_DIM3_COLUMNS))]
+    dim4 = [random.choice(choices) for _ in range(len(MM_DIM4_COLUMNS))]
+    dim5 = [random.choice(choices) for _ in range(len(MM_DIM5_COLUMNS))]
+    dim6 = [random.choice(choices) for _ in range(len(MM_DIM6_COLUMNS))]
+    dim7 = [random.choice(choices) for _ in range(len(MM_DIM7_COLUMNS))]
+
+    row = [*header, *dim1, *dim2, *dim3, *dim4, *dim5, *dim6, *dim7, *footer]
+    row2 = [*header,
+            *[1 for _ in range(len(MM_DIM1_COLUMNS))],
+            *[1 for _ in range(len(MM_DIM2_COLUMNS))],
+            *[1 for _ in range(len(MM_DIM3_COLUMNS))],
+            *[1 for _ in range(len(MM_DIM4_COLUMNS))],
+            *[1 for _ in range(len(MM_DIM5_COLUMNS))],
+            *[1 for _ in range(len(MM_DIM6_COLUMNS))],
+            *[1 for _ in range(len(MM_DIM7_COLUMNS))],
+            *footer]
+
+    assert len(row2) == len(row) == len(SURVEY_COLUMNS), f"Expected {len(SURVEY_COLUMNS)} got {len(row)}"
+
+    dim1_score = np.sum(np.array(dim1) * np.array(MM_DIM1_ITEM_WEIGHTS))
+    dim2_score = np.sum(np.array(dim2) * np.array(MM_DIM2_ITEM_WEIGHTS))
+    dim3_score = np.sum(np.array(dim3) * np.array(MM_DIM3_ITEM_WEIGHTS))
+    dim4_score = np.sum(np.array(dim4) * np.array(MM_DIM4_ITEM_WEIGHTS))
+    dim5_score = np.sum(np.array(dim5) * np.array(MM_DIM5_ITEM_WEIGHTS))
+    dim6_score = np.sum(np.array(dim6) * np.array(MM_DIM6_ITEM_WEIGHTS))
+    dim7_score = np.sum(np.array(dim7) * np.array(MM_DIM7_ITEM_WEIGHTS))
+
+    dim_scores = np.array([dim1_score, dim2_score, dim3_score, dim4_score, 
+                           dim5_score, dim6_score, dim7_score])
+
+    total_score = np.sum(dim_scores * np.array(MM_DIM_WEIGHTS))
+
+    df = pd.DataFrame(columns=SURVEY_COLUMNS)
+    df.loc[0] = row
+    df.loc[1] = row2
+    df = get_scores(df)
+
+    assert math.isclose(dim1_score, df["Dimension_1_Score"][0])
+    assert math.isclose(dim2_score, df["Dimension_2_Score"][0])
+    assert math.isclose(dim3_score, df["Dimension_3_Score"][0])
+    assert math.isclose(dim4_score, df["Dimension_4_Score"][0])
+    assert math.isclose(dim5_score, df["Dimension_5_Score"][0])
+    assert math.isclose(dim6_score, df["Dimension_6_Score"][0])
+    assert math.isclose(dim7_score, df["Dimension_7_Score"][0])
+    assert math.isclose(total_score, df["Maturity_Score"][0]), f"Expected {total_score}, got {df['Maturity_Score'][0]}"
+    assert math.isclose(1.0, df["Maturity_Score"][1]), f"Expected 1.0, got {df['Maturity_Score'][1]}"
+
+    print("score calculation test passed.")
+
+
+if __name__ == "__main__":
+    test_score_calculation()
