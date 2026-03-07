@@ -1,4 +1,4 @@
-- Clarify: 
+- [x] Clarify: 
     - We split the digital vision question into strategy and roadmap (dimension 3) -> how do we weight them, gleichgewichten
     - We changed a question from zero paper strategy to sustainability commitment -> should the weights change? übernehmen
     - We added a question in dimension 5 -> how do we weight this,  alle minus 0.01 und dann 0.08 
@@ -6,3 +6,6 @@
     - Branche & Branche [Sonstiges]
 
     - Digital Vision, Strategy, Roadmap???? -> thomas
+
+- [ ] Activate remote control for the survey?
+- [ ] Add the citric lime survey client and fetch responses from the survey itself (export_response & get_response_by_id)
