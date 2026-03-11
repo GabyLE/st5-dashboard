@@ -17,6 +17,19 @@ data_source = st.sidebar.radio("Datenquelle auswählen:", ["Sample Data", "Uploa
 
 df_full = None
 
+def process_sectors(df):
+    def get_sector_name(row):
+        # Maneja tanto el código '-oth-' como 'bran8' (o el que use tu encuesta para "Otros")
+        if str(row.get('branche', '')).strip() in ['-oth-', 'bran9']:
+            other_val = row.get('branche[other]', '')
+            if pd.notna(other_val) and str(other_val).strip() != '':
+                return str(other_val).strip()
+            return "Sonstiges (Nicht spezifiziert)"
+        return MAP_SECTOR.get(row['branche'], row['branche'])
+
+    df['Sector'] = df.apply(get_sector_name, axis=1)
+    return df
+
 if data_source == "Sample Data":
     num_samples = st.sidebar.number_input("Anzahl der Stichproben", 10, 5000, 200)
     if st.sidebar.button("Daten generieren") or 'df' not in st.session_state:
@@ -38,28 +51,36 @@ else:
         st.stop()
 
 # --- PREPARACIÓN DE DATOS PARA VISUALIZACIÓN ---
-# Creamos columnas legibles para los filtros
-df_full['Sector'] = df_full['branche'].map(MAP_SECTOR)
-df_full['Size'] = df_full['anzMA'].map(MAP_NUM_EMP)
-df_full['PLZ_Group'] = df_full['plz'].astype(str).str[:2]
+if df_full is not None:
+    # 1. Aplicamos la lógica especial para Sectores/Otros
+    df_full = process_sectors(df_full)
 
-dim_cols = [f"Score_dim{i}" for i in range(1, 8)]
-dim_names = [info['name_de'] for info in CONFIG_WEIGHTS.values()]
+    # 2. El resto de columnas legibles
+    df_full['Size'] = df_full['anzMA'].map(MAP_NUM_EMP)
+    df_full['PLZ_Group'] = df_full['plz'].astype(str).str[:2]
 
-# --- SIDEBAR: FILTROS GLOBALES ---
-st.sidebar.divider()
-st.sidebar.header("Globaler Filter")
-filter_sector = st.sidebar.selectbox("Branche", ["Alle"] + list(MAP_SECTOR.values()))
-filter_size = st.sidebar.selectbox("Unternehmensgröße", ["Alle"] + list(MAP_NUM_EMP.values()))
+    dim_cols = [f"Score_dim{i}" for i in range(1, 8)]
+    dim_names = [info['name_de'] for info in CONFIG_WEIGHTS.values()]
 
-compare_mode = st.sidebar.checkbox("Vergleiche aktivieren", value=True)
+    # --- SIDEBAR: FILTROS GLOBALES (ACTUALIZADO) ---
+    st.sidebar.divider()
+    st.sidebar.header("Globaler Filter")
 
-# Aplicar filtros (df_filtered para la tabla/empresa, df_full para promedios globales)
-df_filtered = df_full.copy()
-if filter_sector != "Alle":
-    df_filtered = df_filtered[df_filtered['Sector'] == filter_sector]
-if filter_size != "Alle":
-    df_filtered = df_filtered[df_filtered['Size'] == filter_size]
+    # IMPORTANTE: Ahora el filtro usa los nombres reales que existan en los datos,
+    # incluyendo los que la gente escribió en "Otros".
+    lista_sectores_reales = sorted(df_full['Sector'].unique().tolist())
+    filter_sector = st.sidebar.selectbox("Branche", ["Alle"] + lista_sectores_reales)
+
+    filter_size = st.sidebar.selectbox("Unternehmensgröße", ["Alle"] + list(MAP_NUM_EMP.values()))
+
+    compare_mode = st.sidebar.checkbox("Vergleiche aktivieren", value=True)
+
+    # Aplicar filtros
+    df_filtered = df_full.copy()
+    if filter_sector != "Alle":
+        df_filtered = df_filtered[df_filtered['Sector'] == filter_sector]
+    if filter_size != "Alle":
+        df_filtered = df_filtered[df_filtered['Size'] == filter_size]
 
 # --- TABS PRINCIPALES ---
 st.title("📊 I5.0 Transformations-Check Standortbestimmung")
@@ -73,18 +94,44 @@ with tab_gen:
     col1, col2 = st.columns(2)
 
     with col1:
-        st.subheader("Reifegrad nach Region (PLZ)")
-        geo_data = df_filtered.groupby('PLZ_Group')['Maturity_Score'].mean().reset_index()
-        fig_heat = px.bar(geo_data, x='PLZ_Group', y='Maturity_Score',
-                          color='Maturity_Score', color_continuous_scale='Viridis',
-                          labels={'PLZ_Group': 'PLZ (Erste 2 Ziffern)', 'Maturity_Score': 'Durchschnitt'})
-        st.plotly_chart(fig_heat, use_container_width=True)
+        st.subheader("Regionale Verteilung (PLZ Treemap)")
+        # Agrupamos por PLZ para contar empresas (size) y calcular madurez media
+        geo_data = df_filtered.groupby('PLZ_Group').agg(
+            Avg_Maturity=('Maturity_Score', 'mean'),
+            Count=('id', 'count')
+        ).reset_index()
+
+        # Treemap
+        # values='Count' size square
+        # color='Avg_Maturity' color
+        fig_tree = px.treemap(
+            geo_data,
+            path=['PLZ_Group'],
+            values='Count',
+            color='Avg_Maturity',
+            color_continuous_scale='RdYlGn',  # Rojo (bajo) a Verde (alto)
+            labels={'PLZ_Group': 'PLZ Zone', 'Avg_Maturity': 'Ø Reife', 'Count': 'Anzahl Unternehmen'},
+            title="Größe = Anzahl Firmen | Farbe = Reifegrad"
+        )
+        fig_tree.update_traces(textinfo="label+value")
+        st.plotly_chart(fig_tree, use_container_width=True)
 
     with col2:
         st.subheader("Aufteilung nach Sektoren")
-        sector_data = df_filtered.groupby('Sector')['Maturity_Score'].mean().sort_values().reset_index()
-        fig_sec = px.bar(sector_data, x='Maturity_Score', y='Sector', orientation='h',
-                         color='Maturity_Score', color_continuous_scale='Blues')
+        sector_data = df_filtered.groupby('Sector')['Maturity_Score'].mean().sort_index().reset_index()
+
+        # Corregido: color='Maturity_Score' y color_continuous_scale para que el azul varíe
+        fig_sec = px.bar(
+            sector_data,
+            x='Maturity_Score',
+            y='Sector',
+            orientation='h',
+            color='Maturity_Score',
+            color_continuous_scale='Blues',  # Ahora el tono de azul cambiará según el valor
+            labels={'Maturity_Score': 'Durchschnittlicher Score', 'Sector': 'Branche'}
+        )
+        # Quitamos la leyenda de la barra de color lateral si quieres que se vea más limpio
+        fig_sec.update_layout(coloraxis_showscale=True)
         st.plotly_chart(fig_sec, use_container_width=True)
 
     st.divider()

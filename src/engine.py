@@ -1,30 +1,42 @@
-import pandas as pd
+import math
 from .config import CONFIG_WEIGHTS, COLUMN_MAP, MM_LEVELS
 
+def fix_weights_logic(weights):
+
+    total = sum(weights)
+    if not math.isclose(total, 1.0, rel_tol=1e-7):
+        return [w / total for w in weights]
+    return weights
+
 def calculate_maturity(df):
-    results_df = df.copy()
+    dim_weights = [d["weight_dim"] for d in CONFIG_WEIGHTS.values()]
+    fixed_dim_weights = fix_weights_logic(dim_weights)
 
-    # Calcular Scores por Dimensión
+    # weight items in dimension
+    for dim_key in CONFIG_WEIGHTS:
+        item_weights = [it["weight_item"] for it in CONFIG_WEIGHTS[dim_key]["items"].values()]
+        fixed_item_weights = fix_weights_logic(item_weights)
+
+        for i, item_key in enumerate(CONFIG_WEIGHTS[dim_key]["items"]):
+            CONFIG_WEIGHTS[dim_key]["items"][item_key]["weight_item"] = fixed_item_weights[i]
+
+    # --- SCORES ---
     for dim_id, dim_info in CONFIG_WEIGHTS.items():
-        score_col = f"Score_{dim_id}"
-        results_df[score_col] = 0.0
 
-        for item_info in dim_info['items'].values():
-            ls_col = item_info.get('ls_code')
-            weight = item_info.get('weight_item', 0)
+        cols = [it["ls_code"] for it in dim_info["items"].values()]
+        weights = [it["weight_item"] for it in dim_info["items"].values()]
 
-            if ls_col in results_df.columns:
-                results_df[score_col] += pd.to_numeric(results_df[ls_col], errors='coerce').fillna(0) * weight
+        # (Val * Weights).sum()
+        df[f"Score_{dim_id}"] = df[cols].multiply(weights, axis=1).sum(axis=1)
 
-    # Calcular Maturity Score Global (Fórmula: suma de Dim_Score * Dim_Weight)
-    results_df['Maturity_Score'] = 0.0
-    for dim_id, dim_info in CONFIG_WEIGHTS.items():
-        results_df['Maturity_Score'] += results_df[f"Score_{dim_id}"] * dim_info['weight_dim']
 
-    # Nivel de Madurez (Maturity_Level)
-    results_df['Maturity_Level'] = results_df['Maturity_Score'].apply(get_level_label)
+    score_cols = [f"Score_{dim_id}" for dim_id in CONFIG_WEIGHTS.keys()]
+    df["Maturity_Score"] = df[score_cols].dot(fixed_dim_weights)
 
-    return results_df
+    # Level
+    df["Maturity_Level"] = df["Maturity_Score"].apply(get_level_label)
+
+    return df
 
 def get_level_label(score):
     from .config import MM_LEVELS
