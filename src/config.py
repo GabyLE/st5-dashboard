@@ -326,3 +326,11 @@ MAP_NUM_EMP = {
     "anzM4": "<= 250",
     "anzM5": "> 250"
 }
+
+LIKERT_LABELS = {
+    1: "stimme gar nicht zu (1)",
+    2: "stimme eher nicht zu (2)",
+    3: "teils / teils (3)",
+    4: "stimme eher zu (4)",
+    5: "stimme voll zu (5)"
+}

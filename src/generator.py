@@ -21,10 +21,10 @@ def generate_dummy_data(n=100):
             "seed": random.randint(10000, 99999),
         }
 
-        # Datos de Empresa
+        # data company
         branch_code = random.choice(list(MAP_SECTOR.keys()))
         row["branche"] = branch_code
-        row["branche[other]"] = "Spezialindustrie" if branch_code == "bran8" else ""
+        row["branche[other]"] = "Spezialindustrie" if branch_code == "bran9" else ""
 
         row["anzMA"] = random.choice(list(MAP_NUM_EMP.keys()))
 
