@@ -4,7 +4,7 @@ import plotly.graph_objects as go
 import plotly.express as px
 
 from src.config import CONFIG_WEIGHTS, MAP_SECTOR, MAP_NUM_EMP, MM_LEVELS, LIKERT_LABELS
-from src.engine import calculate_maturity
+from src.engine import calculate_maturity, get_level_label
 from src.generator import generate_dummy_data
 
 
@@ -79,8 +79,107 @@ if df_full is not None:
     if filter_size != "Alle":
         df_filtered = df_filtered[df_filtered['Size'] == filter_size]
 
-# --- TABS ---
 st.title("📊 I5.0 Transformations-Check Standortbestimmung")
+# --- KEY METRICS  ---
+if df_full is not None:
+    # general metrics
+    total_n = len(df_filtered)
+    avg_score = df_filtered['Maturity_Score'].mean()
+    avg_level = get_level_label(avg_score)
+
+    # highest dimension
+    avg_by_dim = df_filtered[dim_cols].mean()
+    top_dim_idx = avg_by_dim.argmax()
+    top_dim_name = dim_names[top_dim_idx]
+
+    # --- CSS for the cards ---
+    st.markdown("""
+    <style>
+        .metric-card {
+            background-color: #ffffff;
+            padding: 20px;
+            border-radius: 12px;
+            border: 1px solid #e6e9ef;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+            text-align: center;
+            height: 120px; 
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+        .metric-label { 
+            font-size: 13px; 
+            color: #555; 
+            text-transform: uppercase; 
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+        .metric-value { 
+            font-size: 24px; 
+            font-weight: bold; 
+            color: #004b23; 
+        }
+        .metric-subtext { 
+            font-size: 14px; 
+            color: #888; 
+            font-weight: 400;
+            margin-top: 4px;
+        }
+        .low-dim { color: #9d0208; } 
+    </style>
+    """, unsafe_allow_html=True)
+
+    if df_full is not None:
+        # --- calculate ---
+        total_n = len(df_filtered)
+        avg_score = df_filtered['Maturity_Score'].mean()
+        avg_level = get_level_label(avg_score)
+
+        avg_by_dim = df_filtered[dim_cols].mean()
+
+        # best dimension
+        top_dim_idx = avg_by_dim.argmax()
+        top_dim_name = dim_names[top_dim_idx]
+
+        # worst dimension
+        low_dim_idx = avg_by_dim.argmin()
+        low_dim_name = dim_names[low_dim_idx]
+
+
+        # columns
+        c1, c2, c3, c4 = st.columns([1, 1, 2, 2])
+
+        with c1:
+            st.markdown(f'''<div class="metric-card">
+                <div class="metric-label">Unternehmen</div>
+                <div class="metric-value">{total_n}</div>
+                <div class="metric-subtext">Gesamtanzahl</div>
+            </div>''', unsafe_allow_html=True)
+
+        with c2:
+
+            st.markdown(f'''<div class="metric-card">
+                <div class="metric-label">Ø Maturity</div>
+                <div class="metric-value">{avg_score:.2f}</div>
+                <div class="metric-subtext">{avg_level}</div>
+            </div>''', unsafe_allow_html=True)
+
+        with c3:
+            st.markdown(f'''<div class="metric-card">
+                <div class="metric-label">⭐ Stärkste Dimension</div>
+                <div class="metric-value" style="font-size: 18px;">{top_dim_name}</div>
+            </div>''', unsafe_allow_html=True)
+
+        with c4:
+            st.markdown(f'''<div class="metric-card">
+                <div class="metric-label">⚠️ Kritische Dimension</div>
+                <div class="metric-value low-dim" style="font-size: 18px;">{low_dim_name}</div>
+            </div>''', unsafe_allow_html=True)
+
+    st.divider()
+
+# --- TABS ---
+
 tab_ind, tab_gen = st.tabs(["Bericht nach Unternehmen (Diagnose)", "Allgemeine Analyse (Strategisch)"])
 
 # ==========================================
@@ -204,7 +303,7 @@ with tab_gen:
     col1, col2 = st.columns(2)
 
     with col1:
-        st.subheader("Regionale Verteilung (PLZ Treemap)")
+        st.subheader("Regionale Verteilung")
 
         geo_data = df_filtered.groupby('PLZ_Group').agg(
             Avg_Maturity=('Maturity_Score', 'mean'),
