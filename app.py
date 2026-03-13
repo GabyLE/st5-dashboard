@@ -22,7 +22,7 @@ COLOR_CELESTE = "#1b85c2"
 COLOR_GRIS = "#b2b2b2"
 
 # escala
-CORP_SCALE = [COLOR_AZUL, COLOR_CELESTE, COLOR_TURQUESA, COLOR_VERDE]
+CORP_SCALE =  [COLOR_GRIS, COLOR_AZUL, COLOR_CELESTE, COLOR_TURQUESA, COLOR_VERDE]
 
 # --- LOAD DATA ---
 st.sidebar.header("Data Source")
@@ -367,7 +367,7 @@ with tab_gen:
         st.subheader("Größe vs. Reife")
         fig_box = px.box(df_filtered, x='Size', y='Maturity_Score', color='Size', color_discrete_sequence=CORP_SCALE,
                          category_orders={"Size": ["<= 10", "<= 50", "<= 100", "<= 250", "> 250"]})
-        fig_box.update_traces(marker_color=COLOR_AZUL, line_color=COLOR_AZUL)
+
         st.plotly_chart(fig_box, use_container_width=True)
 
     with col4:

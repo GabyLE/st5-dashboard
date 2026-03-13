@@ -1,17 +1,17 @@
 # .streamlit/config.toml
 
 [theme]
-# El color de acento (checkboxes, líneas, estados activos)
+# acento (checkboxes, lines, active states)
 primaryColor = "#2d2e83"
 
-# Color de fondo de la aplicación
+# background
 backgroundColor = "#ffffff"
 
-# Color de fondo de la barra lateral
+# sidebar
 secondaryBackgroundColor = "#f8f9fa"
 
-# Color del texto principal
+# main text color
 textColor = "#000000"
 
-# Fuente (opcional: sans serif se ve más moderno)
+# Font
 font = "sans serif"
