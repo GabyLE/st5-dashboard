@@ -7,8 +7,22 @@ from src.config import CONFIG_WEIGHTS, MAP_SECTOR, MAP_NUM_EMP, MM_LEVELS, LIKER
 from src.engine import calculate_maturity, get_level_label
 from src.generator import generate_dummy_data
 
+def local_css(file_name):
+    with open(file_name) as f:
+        st.markdown(f'<style>{f.read()}</style>', unsafe_allow_html=True)
 
 st.set_page_config(page_title="I5.0 Transformation Check", layout="wide")
+local_css("style.css")
+
+# --- colores de marca ---
+COLOR_AZUL = "#2d2e83"
+COLOR_VERDE = "#a8d43a"
+COLOR_TURQUESA = "#69c0ac"
+COLOR_CELESTE = "#1b85c2"
+COLOR_GRIS = "#b2b2b2"
+
+# escala
+CORP_SCALE = [COLOR_AZUL, COLOR_CELESTE, COLOR_TURQUESA, COLOR_VERDE]
 
 # --- LOAD DATA ---
 st.sidebar.header("Data Source")
@@ -79,7 +93,7 @@ if df_full is not None:
     if filter_size != "Alle":
         df_filtered = df_filtered[df_filtered['Size'] == filter_size]
 
-st.title("📊 I5.0 Transformations-Check Standortbestimmung")
+st.title("I5.0 Transformations-Check Standortbestimmung")
 # --- KEY METRICS  ---
 if df_full is not None:
     # general metrics
@@ -267,10 +281,10 @@ with tab_ind:
         col_gap, col_ampel = st.columns(2)
 
         with col_gap:
-            st.subheader("Gap Analysis (Ziel: Senior 5.0)")
+            st.subheader("Gap Analysis (Ziel: Senior)")
             gap_data = pd.DataFrame({'Dimension': dim_names, 'Gap': [5.0 - selected_row[c] for c in dim_cols]})
-            fig_gap = px.bar(gap_data, x='Gap', y='Dimension', orientation='h',
-                             color='Gap', color_continuous_scale='Reds')
+            fig_gap = px.bar(gap_data, x='Gap', y='Dimension', orientation='h', text_auto='.2f',
+                             color='Gap', color_continuous_scale=CORP_SCALE,range_color=[1, 5])
             st.plotly_chart(fig_gap, use_container_width=True)
 
         with col_ampel:
@@ -319,6 +333,7 @@ with tab_gen:
             values='Count',
             color='Avg_Maturity',
             color_continuous_scale='RdYlGn',
+            range_color=[1, 5],
             labels={'PLZ_Group': 'PLZ Zone', 'Avg_Maturity': 'Ø Reife', 'Count': 'Anzahl Unternehmen'},
             title="Größe = Anzahl Firmen | Farbe = Reifegrad"
         )
@@ -335,8 +350,10 @@ with tab_gen:
             x='Maturity_Score',
             y='Sector',
             orientation='h',
+            text_auto='.2f',
             color='Maturity_Score',
-            color_continuous_scale='Blues',
+            color_continuous_scale=CORP_SCALE,
+            range_color=[1, 5],
             labels={'Maturity_Score': 'Durchschnittlicher Maturity Score', 'Sector': 'Branche'}
         )
 
@@ -348,8 +365,9 @@ with tab_gen:
 
     with col3:
         st.subheader("Größe vs. Reife")
-        fig_box = px.box(df_filtered, x='Size', y='Maturity_Score', color='Size',
+        fig_box = px.box(df_filtered, x='Size', y='Maturity_Score', color='Size', color_discrete_sequence=CORP_SCALE,
                          category_orders={"Size": ["<= 10", "<= 50", "<= 100", "<= 250", "> 250"]})
+        fig_box.update_traces(marker_color=COLOR_AZUL, line_color=COLOR_AZUL)
         st.plotly_chart(fig_box, use_container_width=True)
 
     with col4:
@@ -358,5 +376,6 @@ with tab_gen:
         avg_dims.columns = ['Dim', 'Mean']
         avg_dims['Name'] = dim_names
         fig_avg = px.bar(avg_dims, x='Mean', y='Name', orientation='h', text_auto='.2f',
-                         color='Mean', color_continuous_scale='GnBu')
+                         color='Mean', color_continuous_scale=CORP_SCALE, range_color=[1, 5],)
+                         #color_continuous_scale='GnBu')
         st.plotly_chart(fig_avg, use_container_width=True)
