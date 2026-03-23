@@ -1,4 +1,7 @@
 # .streamlit/config.toml
+[server]
+port = 8080
+address = "0.0.0.0"
 
 [theme]
 # acento (checkboxes, lines, active states)
