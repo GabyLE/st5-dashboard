@@ -2,10 +2,10 @@ import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
 import plotly.express as px
-
+from src.limesurvey import get_responses_df
 from src.config import CONFIG_WEIGHTS, MAP_SECTOR, MAP_NUM_EMP, MM_LEVELS, LIKERT_LABELS
 from src.engine import calculate_maturity, get_level_label
-from src.generator import generate_dummy_data
+
 
 def local_css(file_name):
     with open(file_name) as f:
@@ -25,10 +25,52 @@ COLOR_GRIS = "#b2b2b2"
 CORP_SCALE =  [COLOR_GRIS, COLOR_AZUL, COLOR_CELESTE, COLOR_TURQUESA, COLOR_VERDE]
 
 # --- LOAD DATA ---
-st.sidebar.header("Data Source")
-data_source = st.sidebar.radio("Datenquelle auswählen:", ["Sample Data", "Upload CSV"])
+st.sidebar.header("Datenquelle")
+# Solo dos opciones: La API en vivo o subir un archivo manual
+data_source = st.sidebar.radio("Quelle auswählen:", ["LimeSurvey API (Live)", "CSV-Datei hochladen"])
 
-df_full = None
+@st.cache_data(ttl=600) # Cache de 10 minutos para velocidad
+def load_from_limesurvey():
+    try:
+        s = st.secrets["lime_survey"]
+        raw = get_responses_df(s["url"], s["username"], s["password"], s["survey_id"])
+        if raw is not None:
+            # Importante: calculamos la madurez inmediatamente
+            return calculate_maturity(raw)
+        return None
+    except Exception as e:
+        st.error(f"Verbindungsfehler zur API: {e}")
+        return None
+
+if data_source == "LimeSurvey API (Live)":
+    # Botón para forzar actualización manual si hay nuevas respuestas
+    if st.sidebar.button("Daten jetzt aktualisieren") or 'df' not in st.session_state:
+        with st.spinner("Lade Live-Daten aus LimeSurvey..."):
+            df_full = load_from_limesurvey()
+            if df_full is not None:
+                st.session_state['df'] = df_full
+            else:
+                st.stop()
+    else:
+        df_full = st.session_state['df']
+
+else: # Opción: Upload CSV
+    uploaded_file = st.sidebar.file_uploader("CSV-Datei auswählen", type=["csv"])
+    if uploaded_file is not None:
+        # sep=None con engine='python' detecta automáticamente si es coma o punto y coma
+        raw = pd.read_csv(uploaded_file, sep=None, engine='python')
+        df_full = calculate_maturity(raw)
+        st.session_state['df'] = df_full
+    elif 'df' in st.session_state:
+        df_full = st.session_state['df']
+    else:
+        st.info("Bitte laden Sie eine CSV-Datei hoch, um fortzufahren.")
+        st.stop()
+
+# --- ESTADO DE LA CONEXIÓN (Opcional pero útil) ---
+if df_full is not None:
+    print(f"DEBUG: ¡Conexión exitosa! Filas cargadas: {len(df_full)}")
+
 
 def process_sectors(df):
     def get_sector_name(row):
@@ -42,26 +84,6 @@ def process_sectors(df):
 
     df['Sector'] = df.apply(get_sector_name, axis=1)
     return df
-
-if data_source == "Sample Data":
-    num_samples = st.sidebar.number_input("Anzahl der Stichproben", 10, 5000, 200)
-    if st.sidebar.button("Daten generieren") or 'df' not in st.session_state:
-        raw = generate_dummy_data(num_samples)
-        df_full = calculate_maturity(raw)
-        st.session_state['df'] = df_full
-    else:
-        df_full = st.session_state['df']
-else:
-    uploaded_file = st.sidebar.file_uploader("CSV-Datei hochladen", type=["csv"])
-    if uploaded_file is not None:
-        raw = pd.read_csv(uploaded_file)
-        df_full = calculate_maturity(raw)
-        st.session_state['df'] = df_full
-    elif 'df' in st.session_state:
-        df_full = st.session_state['df']
-    else:
-        st.info("Bitte laden Sie eine Datei hoch oder nutzen Sie Sample Data.")
-        st.stop()
 
 
 
