@@ -109,22 +109,25 @@ if df_full is not None:
     list_sizes = list(MAP_NUM_EMP.values())
 
     # 2. Widgets de la Sidebar
-    filter_sector = st.sidebar.selectbox("Branche", ["Alle"] + list_real_sectors)
-    filter_size = st.sidebar.selectbox("Unternehmensgröße", ["Alle"] + list_sizes)
-    filter_region = st.sidebar.selectbox("Region (PLZ Zone)", ["Alle"] + list_real_regions)
-
+    filter_sectors = st.sidebar.multiselect("Branchen auswählen", options=list_real_sectors, default=[])
+    filter_sizes = st.sidebar.multiselect("Unternehmensgrößen auswählen", options=list_sizes, default=[])
+    filter_regions = st.sidebar.multiselect("Regionen (PLZ Zone) auswählen", options=list_real_regions, default=[])
 
     # 3. Lógica de filtrado acumulativo
     df_filtered = df_full.copy()
 
-    if filter_sector != "Alle":
-        df_filtered = df_filtered[df_filtered['Sector'] == filter_sector]
+    if filter_sectors:
+        df_filtered = df_filtered[df_filtered['Sector'].isin(filter_sectors)]
 
-    if filter_size != "Alle":
-        df_filtered = df_filtered[df_filtered['Size'] == filter_size]
+    if filter_sizes:
+        df_filtered = df_filtered[df_filtered['Size'].isin(filter_sizes)]
 
-    if filter_region != "Alle":
-        df_filtered = df_filtered[df_filtered['PLZ_Group'] == filter_region]
+    if filter_regions:
+        df_filtered = df_filtered[df_filtered['PLZ_Group'].isin(filter_regions)]
+
+    # Mostrar un aviso si el filtro deja el dashboard vacío
+    if df_filtered.empty:
+        st.warning("Keine Daten für diese Auswahl gefunden.")
 
 st.title("I5.0 Transformations-Check Standortbestimmung")
 # --- KEY METRICS  ---
