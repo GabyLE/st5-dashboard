@@ -137,9 +137,9 @@ if df_filtered.empty:
             <h3 style="color: #2d2e83; margin-top: 0;"> Keine passenden Daten gefunden</h3>
             <p style="color: #555;">Für die aktuelle Kombination existieren keine Einträge:</p>
             <ul style="list-style: none; padding: 0; color: #2d2e83; font-weight: bold;">
-                <li>Branche: {filter_sector}</li>
-                <li>Größe: {filter_size}</li>
-                <li>Region: {filter_region}</li>
+                <li>Branche: {filter_sectors}</li>
+                <li>Größe: {filter_sizes}</li>
+                <li>Region: {filter_regions}</li>
             </ul>
             <p style="color: #888; font-size: 13px;">Bitte passen Sie die Filter in der Sidebar an.</p>
         </div>
@@ -330,19 +330,50 @@ with tab_ind:
         # --- GAP ANALYSIS: DEL GRUPO FILTRADO ---
         with col_gap:
             st.subheader("Ø Gap Analysis (Ziel: 5.0)")
-            # Calculamos el gap del promedio del grupo respecto al máximo (5.0)
+
+            # 1. Datos
             group_gaps = [5.0 - m for m in group_means]
             gap_df = pd.DataFrame({'Dimension': dim_names, 'Gap': group_gaps})
+
+            # 2. Gráfica con colores fijos para evitar confusión
+            # Si el gap es > 1, es Rojo (No Senior). Si es <= 1, es Verde (Senior).
+            gap_df['Color'] = ['#2ecc71' if g <= 1.0 else '#e74c3c' for g in group_gaps]
 
             fig_gap = px.bar(
                 gap_df, x='Gap', y='Dimension', orientation='h',
                 text_auto='.2f',
-                color='Gap',
-                color_continuous_scale='Reds',  # Rojo indica urgencia del gap
-                range_x=[0, 4]
+                color='Color',
+                color_discrete_map="identity",  # Usa los colores exactos que definimos arriba
+                range_x=[0, 5]
             )
-            fig_gap.update_layout(showlegend=False)
+
+            # 3. Fondo de "Zona Senior" (Sin texto para que no estorbe)
+            fig_gap.add_vrect(
+                x0=0, x1=1.0,
+                fillcolor="rgba(46, 204, 113, 0.15)",
+                line_width=0
+            )
+
+            # 4. Una sola línea guía clara
+            fig_gap.add_vline(x=1.0, line_dash="dot", line_color="#34495e", line_width=2)
+
+            # 5. Limpieza de diseño
+            fig_gap.update_layout(
+                xaxis_title="Gap (Distanz zum Ziel 5.0)",
+                yaxis_title="",
+                margin=dict(l=20, r=20, t=20, b=20),
+                height=400
+            )
+
             st.plotly_chart(fig_gap, use_container_width=True)
+
+            # 6. Leyenda manual debajo (Para evitar el sobrepuesto)
+            st.markdown("""
+            <div style="display: flex; justify-content: space-around; font-size: 0.9em; color: gray;">
+                <span>🟢 <b>0.0 a 1.0:</b> Senior-Level erreicht</span>
+                
+            </div>
+            """, unsafe_allow_html=True)
 
         # --- ITEM-AMPEL: PROMEDIO POR INDICADOR ---
         with col_ampel:
