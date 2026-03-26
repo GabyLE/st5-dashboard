@@ -249,7 +249,7 @@ else:
 
 # --- TABS ---
 
-tab_ind, tab_gen = st.tabs(["Benchmark", "Allgemeine Analyse"])
+tab_gen, tab_ind  = st.tabs(["Allgemeine Analyse", "Benchmark"])
 
 # ==========================================
 # tab 1: BENCHMARK GRUPAL (Antes Individual)
