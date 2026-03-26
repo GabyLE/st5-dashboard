@@ -128,47 +128,47 @@ CONFIG_WEIGHTS = {
             'i18.5':{
                 'name_de': 'Digitale Tech zu Automatisierung',
                 'name_en': 'Digital Technology for automatization',
-                'weight_item': 0.0
+                'weight_item': 0.08
             },
             'i19':{
                 'name_de': 'Autonome und Kollaborative Roboter',
                 'name_en': 'Autonomous and collaborative robots',
-                'weight_item': 0.21
+                'weight_item': 0.2
             },
             'i20':{
                 'name_de': 'Software Systeme',
                 'name_en': 'Software Systems',
-                'weight_item': 0.25
+                'weight_item': 0.24
             },
             'i21':{
                 'name_de': 'Identifikatoren',
                 'name_en': 'Identifiers',
-                'weight_item': 0.16
+                'weight_item': 0.15
             },
             'i22':{
                 'name_de': 'Sensoren, Aktoren',
                 'name_en': 'Sensors, actuators',
-                'weight_item': 0.08
+                'weight_item': 0.07
             },
             'i23':{
                 'name_de': 'M2M und H2M Kommunikation',
                 'name_en': 'M2M and H2M communication',
-                'weight_item': 0.07
+                'weight_item': 0.06
             },
             'i24':{
                 'name_de': 'Digitale Plattformen Lieferantenintegration',
                 'name_en': 'Digital platforms for supplier integration',
-                'weight_item': 0.07
+                'weight_item': 0.06
             },
             'i25':{
                 'name_de': 'Digitale Plattformen Kundenintegration',
                 'name_en': 'Digital platforms for customer integration',
-                'weight_item': 0.07
+                'weight_item': 0.06
             },
             'i26':{
                 'name_de':'Augmented Reality, Virtual Reality und Mixed Reality',
                 'name_en': 'Augmented Reality, Virtual Reality and Mixed Reality',
-                'weight_item': 0.06
+                'weight_item': 0.05
             }
         }
     },
@@ -321,10 +321,10 @@ MAP_SECTOR = {
 
 MAP_NUM_EMP = {
     "anzM1": "<= 10",
-    "anzM2": "<= 50",
-    "anzM3": "<= 100",
-    "anzM4": "<= 250",
-    "anzM5": "> 250"
+      "anzM2": "<= 50",
+      "anzM3": "<= 100",
+      "anzM6": "<= 250",
+      "anzM7": "> 250"
 }
 
 LIKERT_LABELS = {
