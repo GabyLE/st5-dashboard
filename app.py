@@ -371,8 +371,7 @@ elif nav == "Benchmark":
         st.subheader("Benchmark & Analyse")
 
         # 1. Gestión del estado
-        if 'view_mode' not in st.session_state:
-            st.session_state.view_mode = 'general'
+        if 'view_mode' not in st.session_state: st.session_state.view_mode = 'general'
 
 
         def reset_benchmark():
@@ -381,110 +380,141 @@ elif nav == "Benchmark":
             st.query_params.clear()
 
 
+        # 2. Input ID
         st.text_input("Geben Sie Ihre Antwort-ID ein:", key="id_input_val")
         input_id = st.session_state.id_input_val
-        # 2. DETERMINACIÓN DE DATOS (Individual vs Grupo)
+
+        # 3. Lógica de datos unificada (aquí forzamos la sincronización)
         if input_id and input_id.isdigit():
-            individual_data = df_full[df_full['id'] == int(input_id)]
-            if not individual_data.empty:
+            data = df_full[df_full['id'] == int(input_id)]
+            if not data.empty:
                 st.session_state.view_mode = 'individual'
-                # Datos para Gráficos
-                r_principal = individual_data[score_cols].values.flatten().tolist()
-                # Datos para GAPs y Tabla
-                serie_a_mostrar = individual_data.iloc[0]
-                nombre_principal = 'Ihr Ergebnis'
-                color_principal = '#2ecc71'
-                st.success(f"Individueller Bericht für ID: {input_id}")
-                st.button("Zurück zum allgemeinen Benchmark", on_click=reset_benchmark)
+                r_principal = data[score_cols].values.flatten().tolist()
+                score_actual = data['Maturity_Score'].iloc[0]  # El score exacto del individuo
+                serie_a_mostrar = data.iloc[0]
+                nombre_principal, color_principal = 'Ihr Ergebnis', '#2ecc71'
+                if st.button("Zurück zum allgemeinen Benchmark", on_click=reset_benchmark): st.rerun()
             else:
                 st.error("ID nicht gefunden.")
                 st.session_state.view_mode = 'general'
-                r_principal, serie_a_mostrar = group_means, df_filtered[
-                    [it['ls_code'] for d in CONFIG_WEIGHTS.values() for it in d['items'].values()]].mean()
+                r_principal = group_means  # Usamos los promedios del filtro
+                score_actual = filter_avg  # Sincronizado con las tarjetas superiores
                 nombre_principal, color_principal = 'Aktueller Filter', COLOR_VERDE
         else:
             st.session_state.view_mode = 'general'
             r_principal = group_means
-            serie_a_mostrar = df_filtered[
-                [it['ls_code'] for d in CONFIG_WEIGHTS.values() for it in d['items'].values()]].mean()
+            score_actual = filter_avg  # Sincronizado con las tarjetas superiores
             nombre_principal, color_principal = 'Aktueller Filter', COLOR_VERDE
 
-        # 3. RADAR (Usa r_principal)
+        # 4. KPI METRICS (Sincronizadas)
+        def get_label_by_score(score):
+            for label, (min_val, max_val) in MM_LEVELS:
+                # Usamos <= para el límite superior para evitar solapamientos
+                if min_val <= score < max_val:
+                    return label
+            return "Senior" if score >= 4.0 else "Außenseiter"  # Fallback
+
+
+        # 2. Bloque de KPI Metrics actualizado
+        col1, col2, col3 = st.columns(3)
+
+        # Calculamos la etiqueta dinámica
+        label_actual = get_label_by_score(score_actual)
+
+        col1.metric("Ø Maturity Score", f"{score_actual:.2f}")
+        col2.metric("Abstand zum Ziel (5.0)", f"{(5.0 - score_actual):.2f}")
+        col3.metric("Level", label_actual)
+
+        # --- 3. RADAR CON COMPARADORES ---
+
+        benchmarks = st.multiselect(
+            "Vergleich hinzufügen:",
+            ["Gesamtmarkt", "Branchen-Schnitt", "Unternehmensgröße"]
+        )
+
         fig_radar = go.Figure()
-        fig_radar.add_trace(
-            go.Scatterpolar(r=r_principal + [r_principal[0]], theta=dim_names + [dim_names[0]], fill='toself',
-                            name=nombre_principal, line_color=color_principal))
-        fig_radar.add_trace(go.Scatterpolar(r=global_means + [global_means[0]], theta=dim_names + [dim_names[0]],
-                                            name='Gesamtmarkt (Global)', line=dict(dash='dash', color=COLOR_AZUL)))
+
+        # 1. Trazo Principal: SIEMPRE VERDE DE MARCA
+        fig_radar.add_trace(go.Scatterpolar(
+            r=r_principal + [r_principal[0]],
+            theta=dim_names + [dim_names[0]],
+            fill='toself',
+            fillcolor='rgba(168, 212, 58, 0.2)',  # Verde suave de relleno
+            name=nombre_principal,
+            line=dict(color=COLOR_VERDE, width=3)  # Grosor 3 para que resalte
+        ))
+
+        # 2. Trazos comparativos: Colores oscuros/fuertes y mayor grosor
+        if "Gesamtmarkt" in benchmarks:
+            fig_radar.add_trace(go.Scatterpolar(
+                r=global_means + [global_means[0]],
+                theta=dim_names + [dim_names[0]],
+                name='Gesamtmarkt',
+                line=dict(dash='dash', color='#2d2e83', width=2.5)  # Azul oscuro
+            ))
+
+        if "Branchen-Schnitt" in benchmarks:
+            sector_actual = serie_a_mostrar['Sector']
+            sec_means = df_full[df_full['Sector'] == sector_actual][score_cols].mean().tolist()
+            fig_radar.add_trace(go.Scatterpolar(
+                r=sec_means + [sec_means[0]],
+                theta=dim_names + [dim_names[0]],
+                name=f'Sektor: {sector_actual}',
+                line=dict(dash='dot', color='#d35400', width=2.5)  # Naranja/Rojo fuerte (contraste)
+            ))
+
+        if "Unternehmensgröße" in benchmarks:
+            size_actual = serie_a_mostrar['Size']
+            size_means = df_full[df_full['Size'] == size_actual][score_cols].mean().tolist()
+            fig_radar.add_trace(go.Scatterpolar(
+                r=size_means + [size_means[0]],
+                theta=dim_names + [dim_names[0]],
+                name=f'Größe: {size_actual}',
+                line=dict(dash='longdash', color='#8e44ad', width=2.5)  # Púrpura fuerte
+            ))
+
+        fig_radar.update_layout(
+            polar=dict(radialaxis=dict(visible=True, range=[1, 5])),
+            legend=dict(orientation="h", y=-0.2),
+            height=500
+        )
+
         st.plotly_chart(fig_radar, use_container_width=True)
 
+        # --- 4. ACCIÓN: STÄRKEN & SCHWÄCHEN ---
         st.divider()
-        col_gap, col_ampel = st.columns(2)
+        col_s, col_w = st.columns(2)
 
-        # 4. GAP ANALYSIS (Usa r_principal que viene de valores_comparacion)
-        with col_gap:
-            st.subheader("Gap Analysis (Ziel: 5.0)")
-            # r_principal contiene los scores de la dimensión activa
-            gap_df = pd.DataFrame({'Dimension': dim_names, 'Gap': [5.0 - m for m in r_principal]})
-            gap_df['Color'] = ['#2ecc71' if g <= 1.0 else '#e74c3c' for g in gap_df['Gap']]
+        # Ordenamos las dimensiones para hallar top 3
+        dim_scores = sorted(zip(dim_names, r_principal), key=lambda x: x[1], reverse=True)
 
-            fig_gap = px.bar(gap_df, x='Gap', y='Dimension', orientation='h', text_auto='.2f', color='Color',
-                             color_discrete_map="identity", range_x=[0, 5])
-            fig_gap.add_vrect(x0=0, x1=1.0, fillcolor="rgba(46, 204, 113, 0.15)", line_width=0)
-            fig_gap.add_vline(x=1.0, line_dash="dot", line_color="#34495e", line_width=2)
-            st.plotly_chart(fig_gap, use_container_width=True)
+        with col_s:
+            st.success("Top 3 Stärken")
+            for name, val in dim_scores[:3]: st.write(f"✅ **{name}**: {val:.2f}")
+        with col_w:
+            st.error("Top 3 Handlungsfelder")
+            for name, val in dim_scores[-3:]: st.write(f"⚠️ **{name}**: {val:.2f}")
 
-        # 5. ITEM-PERFORMANCE (Usa serie_a_mostrar)
-        with col_ampel:
-            st.subheader("🚦 Item-Performance")
-            dim_key = st.selectbox("Dimension auswählen:", list(CONFIG_WEIGHTS.keys()),
-                                   format_func=lambda x: CONFIG_WEIGHTS[x]['name_de'])
+        # --- 5. TABLA DETALLADA ---
+        st.divider()
+        st.subheader("🚦 Item-Performance (Detail)")
+        dim_key = st.selectbox("Dimension auswählen:", list(CONFIG_WEIGHTS.keys()),
+                               format_func=lambda x: CONFIG_WEIGHTS[x]['name_de'])
 
-            items_list = []
-            for i_id, i_info in CONFIG_WEIGHTS[dim_key]['items'].items():
-                ls_code = i_info['ls_code']
+        items_list = []
+        for i_id, i_info in CONFIG_WEIGHTS[dim_key]['items'].items():
+            val_grupo = float(df_filtered[i_info['ls_code']].mean())
+            row = {"Item": i_info['name_de'], "Ø Gruppe": val_grupo}
+            if st.session_state.view_mode == 'individual':
+                row["Dein Wert"] = float(serie_a_mostrar[i_info['ls_code']])
+            items_list.append(row)
 
-                # Valor del grupo (siempre lo tenemos)
-                val_grupo = float(df_filtered[ls_code].mean())
-
-                # Estructura base
-                row = {"Item": i_info['name_de'], "Ø Gruppe": val_grupo}
-
-                # Si es modo individual, añadimos el valor personal
-                if st.session_state.view_mode == 'individual':
-                    val_indiv = float(serie_a_mostrar[ls_code])
-                    row["Dein Wert"] = val_indiv
-                    val_para_color = val_indiv  # El color se basa en TU valor
-                else:
-                    val_para_color = val_grupo  # El color se basa en el promedio del grupo
-
-                items_list.append(row)
-
-            df_performance = pd.DataFrame(items_list)
-
-
-            # Función de color condicional
-            def highlight_performance(row):
-                # Determinamos qué valor usar para el color según la columna que exista
-                val = row['Dein Wert'] if 'Dein Wert' in row else row['Ø Gruppe']
-                if val >= 4:
-                    color = 'background-color: #d4edda'  # Verde
-                elif val >= 3:
-                    color = 'background-color: #fff3cd'  # Amarillo
-                else:
-                    color = 'background-color: #f8d7da'  # Rojo
-                return [color] * len(row)
-
-
-            # Formateo dinámico: solo añadir columnas si existen
-            format_dict = {"Ø Gruppe": "{:.2f}"}
-            if 'Dein Wert' in df_performance.columns:
-                format_dict["Dein Wert"] = "{:.2f}"
-
-            st.dataframe(
-                df_performance.style.apply(highlight_performance, axis=1).format(format_dict),
-                use_container_width=True
-            )
+        df_p = pd.DataFrame(items_list)
+        st.dataframe(df_p.style.apply(lambda row: ['background-color: #d4edda' if (row[
+                                                                                       'Dein Wert'] if 'Dein Wert' in row else
+                                                                                   row[
+                                                                                       'Ø Gruppe']) >= 4 else 'background-color: #f8d7da'] * len(
+            row), axis=1), use_container_width=True)
 
 
 
