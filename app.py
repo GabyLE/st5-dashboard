@@ -7,12 +7,26 @@ from src.config import CONFIG_WEIGHTS, MAP_SECTOR, MAP_NUM_EMP, MM_LEVELS, LIKER
 from src.engine import calculate_maturity, get_level_label
 
 
+def get_label_by_score(score):
+    for label, (min_val, max_val) in MM_LEVELS:
+        # Usamos <= para el límite superior para evitar solapamientos
+        if min_val <= score < max_val:
+            return label
+    return "Senior" if score >= 4.0 else "Außenseiter"  # Fallback
+
 def local_css(file_name):
     with open(file_name) as f:
         st.markdown(f'<style>{f.read()}</style>', unsafe_allow_html=True)
 
 st.set_page_config(page_title="I5.0 Transformation Check", layout="wide")
 local_css("style.css")
+
+params = st.query_params
+if "id" in params and params["id"].isdigit():
+    st.session_state.id_input_val = params["id"]
+    st.session_state.current_tab = "Benchmark"
+    # IMPORTANTE: Esto asegura que el input del benchmark tenga el valor
+    st.session_state.view_mode = 'individual'
 
 # --- colores de marca ---
 COLOR_AZUL = "#2d2e83"
@@ -379,42 +393,39 @@ elif nav == "Benchmark":
             st.session_state.id_input_val = ""
             st.query_params.clear()
 
+        # 2. Input ID (Cambiamos el key para que sea consistente)
+        current_val = st.session_state.get("id_input_val", "")
+        input_id = st.text_input("Geben Sie Ihre Antwort-ID ein:", value=current_val)
 
-        # 2. Input ID
-        st.text_input("Geben Sie Ihre Antwort-ID ein:", key="id_input_val")
-        input_id = st.session_state.id_input_val
+        # Solo hacemos reran si el valor cambia realmente, evitando bucles
+        if input_id != current_val:
+            st.session_state.id_input_val = input_id
+            st.rerun()
 
         # 3. Lógica de datos unificada (aquí forzamos la sincronización)
-        if input_id and input_id.isdigit():
-            data = df_full[df_full['id'] == int(input_id)]
+        serie_a_mostrar = None
+        if st.session_state.id_input_val and st.session_state.id_input_val.isdigit():
+            data = df_full[df_full['id'] == int(st.session_state.id_input_val)]
             if not data.empty:
                 st.session_state.view_mode = 'individual'
                 r_principal = data[score_cols].values.flatten().tolist()
-                score_actual = data['Maturity_Score'].iloc[0]  # El score exacto del individuo
+                score_actual = data['Maturity_Score'].iloc[0]
                 serie_a_mostrar = data.iloc[0]
                 nombre_principal, color_principal = 'Ihr Ergebnis', '#2ecc71'
                 if st.button("Zurück zum allgemeinen Benchmark", on_click=reset_benchmark): st.rerun()
             else:
                 st.error("ID nicht gefunden.")
                 st.session_state.view_mode = 'general'
-                r_principal = group_means  # Usamos los promedios del filtro
-                score_actual = filter_avg  # Sincronizado con las tarjetas superiores
+                r_principal = group_means
+                score_actual = filter_avg
                 nombre_principal, color_principal = 'Aktueller Filter', COLOR_VERDE
         else:
             st.session_state.view_mode = 'general'
             r_principal = group_means
-            score_actual = filter_avg  # Sincronizado con las tarjetas superiores
+            score_actual = filter_avg
             nombre_principal, color_principal = 'Aktueller Filter', COLOR_VERDE
 
         # 4. KPI METRICS (Sincronizadas)
-        def get_label_by_score(score):
-            for label, (min_val, max_val) in MM_LEVELS:
-                # Usamos <= para el límite superior para evitar solapamientos
-                if min_val <= score < max_val:
-                    return label
-            return "Senior" if score >= 4.0 else "Außenseiter"  # Fallback
-
-
         # 2. Bloque de KPI Metrics actualizado
         col1, col2, col3 = st.columns(3)
 
@@ -497,7 +508,7 @@ elif nav == "Benchmark":
 
         # --- 5. TABLA DETALLADA ---
         st.divider()
-        st.subheader("🚦 Item-Performance (Detail)")
+        st.subheader("🚦 Item-Performance")
         dim_key = st.selectbox("Dimension auswählen:", list(CONFIG_WEIGHTS.keys()),
                                format_func=lambda x: CONFIG_WEIGHTS[x]['name_de'])
 
@@ -510,11 +521,22 @@ elif nav == "Benchmark":
             items_list.append(row)
 
         df_p = pd.DataFrame(items_list)
-        st.dataframe(df_p.style.apply(lambda row: ['background-color: #d4edda' if (row[
-                                                                                       'Dein Wert'] if 'Dein Wert' in row else
-                                                                                   row[
-                                                                                       'Ø Gruppe']) >= 4 else 'background-color: #f8d7da'] * len(
-            row), axis=1), use_container_width=True)
+
+        # Definir formato para redondear a 2 decimales
+        format_dict = {"Ø Gruppe": "{:.2f}"}
+        if "Dein Wert" in df_p.columns:
+            format_dict["Dein Wert"] = "{:.2f}"
+
+        # Aplicar estilo de color y formato de redondeo
+        st.dataframe(
+            df_p.style.apply(
+                lambda row: ['background-color: #d4edda' if (row['Dein Wert'] if 'Dein Wert' in row else row[
+                    'Ø Gruppe']) >= 4
+                             else 'background-color: #f8d7da'] * len(row),
+                axis=1
+            ).format(format_dict),
+            use_container_width=True
+        )
 
 
 
