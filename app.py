@@ -23,7 +23,7 @@ market_cols = {
 }
 
 
-# --- 2. FUNCIONES DE PROCESAMIENTO ---
+# --- 2. FUNCTIONS ---
 def get_label_by_score(score):
     for label, (min_val, max_val) in MM_LEVELS:
         if min_val <= score < max_val: return label
