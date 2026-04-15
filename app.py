@@ -33,14 +33,36 @@ market_cols = {
 }
 
 
+
 st.set_page_config(page_title="I5.0 Transformation Check", layout="wide")
 local_css("style.css")
 
+
+@st.cache_data(ttl=60)
+def get_data_from_api():
+    return load_from_limesurvey()
+
+
+# Obtenemos parámetros de la URL
 params = st.query_params
-if "id" in params and params["id"].isdigit():
-    st.session_state.id_input_val = params["id"]
+url_id = params.get("id")
+
+# Cargamos los datos iniciales
+df_full = get_data_from_api()
+
+# --- 3. LÓGICA DE SINCRONIZACIÓN ---
+if url_id and url_id.isdigit():
+    # Verificamos si el ID de la URL ya está en los datos actuales
+    if str(url_id) not in df_full['id'].astype(str).values:
+        with st.spinner('Sincronizando con LimeSurvey... Procesando nueva respuesta...'):
+            # Borramos la caché para obligar a descargar de nuevo
+            st.cache_data.clear()
+            # Recargamos
+            df_full = get_data_from_api()
+
+    # Asignamos el estado solo si los datos ya están confirmados
+    st.session_state.id_input_val = url_id
     st.session_state.current_tab = "Benchmark"
-    # IMPORTANTE: Esto asegura que el input del benchmark tenga el valor
     st.session_state.view_mode = 'individual'
 
 # --- colores de marca ---
@@ -78,7 +100,7 @@ if data_source == "LimeSurvey API (Live)":
             df_full = load_from_limesurvey()
             if df_full is not None:
                 st.session_state['df'] = df_full
-                st.write("Columnas disponibles:", df_full.columns.tolist())
+                #st.write("Columnas disponibles:", df_full.columns.tolist())
             else:
                 st.stop()
     else:
