@@ -6,22 +6,42 @@ import pandas as pd
 
 
 def call_api(url, method, params, id=1):
-
-    payload = json.dumps({
+    payload = {
         "method": method,
         "params": params,
-        "id": id
-    }).encode('utf-8')
+        "id": id,
+        "jsonrpc": "2.0"
+    }
 
-    req = urllib.request.Request(url, data=payload)
+    # FORZAMOS A BYTES AQUÍ. Si falla aquí, es que 'payload' no se puede convertir.
+    try:
+        data_to_send = json.dumps(payload).encode('utf-8')
+    except Exception as e:
+        raise Exception(f"DEBUG: No puedo convertir el payload a bytes. Tipo de payload: {type(payload)}. Error: {e}")
+
+    req = urllib.request.Request(url, data=data_to_send)
     req.add_header('Content-Type', 'application/json')
 
     try:
         with urllib.request.urlopen(req) as response:
-            result = json.loads(response.read().decode('utf-8'))
-            if result.get("error"):
-                raise Exception(f"LimeSurvey Error: {result['error']}")
-            return result["result"]
+            raw_data = response.read()  # Esto es bytes
+
+            # Intentar decodificar
+            try:
+                decoded_data = raw_data.decode('utf-8')
+                result = json.loads(decoded_data)
+            except Exception as e:
+                raise Exception(f"DEBUG: No puedo decodificar la respuesta. Respuesta recibida: {raw_data}. Error: {e}")
+
+            if "error" in result and result["error"]:
+                raise Exception(f"LimeSurvey API Error: {result['error']}")
+
+            return result.get("result")
+
+    except TypeError as e:
+        # ESTE ES EL QUE NOS INTERESA
+        raise Exception(
+            f"¡ENCONTRADO! TypeError en el código: {e}. Revisa si alguna variable es un dict cuando debería ser bytes.")
     except Exception as e:
         raise Exception(f"Error de conexión: {e}")
 
