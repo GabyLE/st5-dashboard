@@ -6,22 +6,12 @@ from src.limesurvey import get_responses_df
 from src.config import CONFIG_WEIGHTS, MAP_SECTOR, MAP_NUM_EMP, MM_LEVELS, LIKERT_LABELS
 from src.engine import calculate_maturity, get_level_label
 
-
-def get_label_by_score(score):
-    for label, (min_val, max_val) in MM_LEVELS:
-        # Usamos <= para el límite superior para evitar solapamientos
-        if min_val <= score < max_val:
-            return label
-    return "Senior" if score >= 4.0 else "Außenseiter"  # Fallback
-
-def reset_benchmark():
-    st.session_state.view_mode = 'general'
-    st.session_state.id_input_val = ""
-    st.query_params.clear()
-
-def local_css(file_name):
-    with open(file_name) as f:
-        st.markdown(f'<style>{f.read()}</style>', unsafe_allow_html=True)
+COLOR_AZUL = "#2d2e83"
+COLOR_VERDE = "#a8d43a"
+COLOR_TURQUESA = "#69c0ac"
+COLOR_CELESTE = "#1b85c2"
+COLOR_GRIS = "#b2b2b2"
+CORP_SCALE = [COLOR_GRIS, COLOR_AZUL, COLOR_CELESTE, COLOR_TURQUESA, COLOR_VERDE]
 
 market_cols = {
     "marktPosition[erfolg1]": "Erfolg: Letztes Jahr",
@@ -33,110 +23,90 @@ market_cols = {
 }
 
 
-
-st.set_page_config(page_title="I5.0 Transformation Check", layout="wide")
-local_css("style.css")
-
-
-@st.cache_data(ttl=60)
-def get_data_from_api():
-    return load_from_limesurvey()
-
-
-# Obtenemos parámetros de la URL
-params = st.query_params
-url_id = params.get("id")
-
-# Cargamos los datos iniciales
-df_full = get_data_from_api()
-
-# --- 3. LÓGICA DE SINCRONIZACIÓN ---
-if url_id and url_id.isdigit():
-    # Verificamos si el ID de la URL ya está en los datos actuales
-    if str(url_id) not in df_full['id'].astype(str).values:
-        with st.spinner('Sincronizando con LimeSurvey... Procesando nueva respuesta...'):
-            # Borramos la caché para obligar a descargar de nuevo
-            st.cache_data.clear()
-            # Recargamos
-            df_full = get_data_from_api()
-
-    # Asignamos el estado solo si los datos ya están confirmados
-    st.session_state.id_input_val = url_id
-    st.session_state.current_tab = "Benchmark"
-    st.session_state.view_mode = 'individual'
-
-# --- colores de marca ---
-COLOR_AZUL = "#2d2e83"
-COLOR_VERDE = "#a8d43a"
-COLOR_TURQUESA = "#69c0ac"
-COLOR_CELESTE = "#1b85c2"
-COLOR_GRIS = "#b2b2b2"
-
-# escala
-CORP_SCALE =  [COLOR_GRIS, COLOR_AZUL, COLOR_CELESTE, COLOR_TURQUESA, COLOR_VERDE]
-
-# --- LOAD DATA ---
-st.sidebar.header("Datenquelle")
-# Solo dos opciones: La API en vivo o subir un archivo manual
-data_source = st.sidebar.radio("Quelle auswählen:", ["LimeSurvey API (Live)", "CSV-Datei hochladen"])
-
-@st.cache_data(ttl=600) # Cache de 10 minutos para velocidad
-def load_from_limesurvey():
-    try:
-        s = st.secrets["lime_survey"]
-        raw = get_responses_df(s["url"], s["username"], s["password"], s["survey_id"])
-        if raw is not None:
-            # Importante: calculamos la madurez inmediatamente
-            return calculate_maturity(raw)
-        return None
-    except Exception as e:
-        st.error(f"Verbindungsfehler zur API: {e}")
-        return None
-
-if data_source == "LimeSurvey API (Live)":
-    # Botón para forzar actualización manual si hay nuevas respuestas
-    if st.sidebar.button("Daten jetzt aktualisieren") or 'df' not in st.session_state:
-        with st.spinner("Lade Live-Daten aus LimeSurvey..."):
-            df_full = load_from_limesurvey()
-            if df_full is not None:
-                st.session_state['df'] = df_full
-                #st.write("Columnas disponibles:", df_full.columns.tolist())
-            else:
-                st.stop()
-    else:
-        df_full = st.session_state['df']
-
-else: # Opción: Upload CSV
-    uploaded_file = st.sidebar.file_uploader("CSV-Datei auswählen", type=["csv"])
-    if uploaded_file is not None:
-        # sep=None con engine='python' detecta automáticamente si es coma o punto y coma
-        raw = pd.read_csv(uploaded_file, sep=None, engine='python')
-        df_full = calculate_maturity(raw)
-        st.session_state['df'] = df_full
-    elif 'df' in st.session_state:
-        df_full = st.session_state['df']
-    else:
-        st.info("Bitte laden Sie eine CSV-Datei hoch, um fortzufahren.")
-        st.stop()
-
-# --- ESTADO DE LA CONEXIÓN (Opcional pero útil) ---
-if df_full is not None:
-    print(f"DEBUG: ¡Conexión exitosa! Filas cargadas: {len(df_full)}")
+# --- 2. FUNCIONES DE PROCESAMIENTO ---
+def get_label_by_score(score):
+    for label, (min_val, max_val) in MM_LEVELS:
+        if min_val <= score < max_val: return label
+    return "Senior" if score >= 4.0 else "Außenseiter"
 
 
 def process_sectors(df):
     def get_sector_name(row):
-
         if str(row.get('branche', '')).strip() in ['-oth-', 'bran9']:
             other_val = row.get('branche[other]', '')
-            if pd.notna(other_val) and str(other_val).strip() != '':
-                return str(other_val).strip()
-            return "Sonstiges (Nicht spezifiziert)"
+            return str(other_val).strip() if pd.notna(other_val) and str(
+                other_val).strip() != '' else "Sonstiges (Nicht spezifiziert)"
         return MAP_SECTOR.get(row['branche'], row['branche'])
 
     df['Sector'] = df.apply(get_sector_name, axis=1)
     return df
 
+
+def reset_benchmark():
+    st.session_state.view_mode = 'general'
+    st.session_state.id_input_val = ""
+    st.query_params.clear()
+    st.rerun()
+
+
+# --- 3. CARGA DE DATOS ---
+@st.cache_data(ttl=600)
+def load_from_limesurvey():
+    try:
+        s = st.secrets["lime_survey"]
+        raw = get_responses_df(s["url"], s["username"], s["password"], s["survey_id"])
+        return calculate_maturity(raw) if raw is not None else None
+    except Exception as e:
+        st.error(f"Verbindungsfehler: {e}")
+        return None
+
+
+# --- 4. CONFIGURACIÓN DE PÁGINA ---
+st.set_page_config(page_title="I5.0 Transformation Check", layout="wide")
+# local_css("style.css") # Asegúrate de que este archivo exista
+
+# --- 5. LÓGICA PRINCIPAL Y FLUJO ---
+st.sidebar.header("Datenquelle")
+data_source = st.sidebar.radio("Quelle auswählen:", ["LimeSurvey API (Live)", "CSV-Datei hochladen"])
+
+if 'df' not in st.session_state: st.session_state['df'] = None
+
+if data_source == "LimeSurvey API (Live)":
+    if st.sidebar.button("Daten jetzt aktualisieren") or st.session_state['df'] is None:
+        with st.spinner("Lade Daten..."):
+            st.session_state['df'] = load_from_limesurvey()
+else:
+    uploaded_file = st.sidebar.file_uploader("CSV-Datei auswählen", type=["csv"])
+    if uploaded_file:
+        raw = pd.read_csv(uploaded_file, sep=None, engine='python')
+        st.session_state['df'] = calculate_maturity(raw)
+
+# --- 6. PROCESAMIENTO FINAL Y SINCRONIZACIÓN ---
+df_full = st.session_state['df']
+
+if df_full is not None:
+    df_full = process_sectors(df_full)
+    df_full['Size'] = df_full['anzMA'].map(MAP_NUM_EMP)
+    df_full['PLZ_Group'] = df_full['plz'].astype(str).str[:2]
+
+    # Sincronización URL
+    params = st.query_params
+    url_id = params.get("id")
+
+    if url_id and str(url_id) not in df_full['id'].astype(str).values:
+        with st.spinner('Sincronizando ID...'):
+            st.cache_data.clear()
+            st.session_state['df'] = load_from_limesurvey()
+            st.rerun()
+
+    if url_id and url_id.isdigit():
+        st.session_state.id_input_val = url_id
+        st.session_state.current_tab = "Benchmark"
+        st.session_state.view_mode = 'individual'
+
+    # AQUÍ COMIENZA TU DASHBOARD (gráficos, tablas, etc.)
+else:
+    st.info("Bitte laden Sie Daten, um fortzufahren.")
 
 
 # --- PREPARE DATA FOR VISUALIZATION ---
