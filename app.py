@@ -14,6 +14,11 @@ def get_label_by_score(score):
             return label
     return "Senior" if score >= 4.0 else "Außenseiter"  # Fallback
 
+def reset_benchmark():
+    st.session_state.view_mode = 'general'
+    st.session_state.id_input_val = ""
+    st.query_params.clear()
+
 def local_css(file_name):
     with open(file_name) as f:
         st.markdown(f'<style>{f.read()}</style>', unsafe_allow_html=True)
@@ -63,7 +68,7 @@ if data_source == "LimeSurvey API (Live)":
             df_full = load_from_limesurvey()
             if df_full is not None:
                 st.session_state['df'] = df_full
-                st.write("Columnas disponibles:", df_full.columns.tolist())
+                #st.write("Columnas disponibles:", df_full.columns.tolist())
             else:
                 st.stop()
     else:
@@ -144,7 +149,15 @@ if df_full is not None:
     if df_filtered.empty:
         st.warning("Keine Daten für diese Auswahl gefunden.")
 
-st.title("I5.0 Transformations-Check Standortbestimmung")
+# --- HEADER CON LOGO Y TÍTULO ---
+col_title, col_logo = st.columns([4,2 ])
+with col_logo:
+    # Ajusta el nombre de tu archivo de imagen
+    st.image("img/Logo_ST5.png", width=240)
+
+with col_title:
+    st.title("I5.0 Transformations-Check Standortbestimmung")
+
 # --- KEY METRICS  ---
 if df_filtered.empty:
     st.markdown(f"""
@@ -343,170 +356,88 @@ elif nav == "Benchmark":
     score_cols = [f"Score_{dim}" for dim in CONFIG_WEIGHTS.keys()]
     dim_names = [d["name_de"] for d in CONFIG_WEIGHTS.values()]
 
-    if df_filtered.empty:
+    # 1. Avisar si hay filtros activos
+    if len(filter_sectors) > 0 or len(filter_sizes) > 0 or len(filter_regions) > 0:
+        st.info(f"💡 Benchmark-Ansicht: Gefiltert auf {len(df_filtered)} Unternehmen.")
+
+    if df_filtered.empty and 'id_input_val' not in st.session_state:
         st.warning("Keine Daten mit den aktuellen Filtern verfügbar.")
     else:
-        # # Título dinámico basado en los filtros de la sidebar
-        # st.header("Benchmark")
+        # --- Lógica de Estado ---
+        id_val = st.session_state.get("id_input_val", "")
+        input_id = st.text_input("Geben Sie Ihre Antwort-ID ein:", value=id_val)
 
-        # 1. CÁLCULOS DE PROMEDIOS (FILTRADO VS GLOBAL)
-        # Promedio del grupo que el usuario filtró en la sidebar
-        group_means = df_filtered[dim_cols].mean().tolist()
-        group_overall = df_filtered['Maturity_Score'].mean()
-        group_level = get_level_label(group_overall)
-
-        # Promedio total de toda la base de datos (Global)
-        global_means = df_full[dim_cols].mean().tolist()
-        global_overall = df_full['Maturity_Score'].mean()
-
-        col_gauge, col_radar = st.columns([1, 2])
-
-        # # --- GAUGE: PROMEDIO DEL GRUPO FILTRADO ---
-        # with col_gauge:
-        #     st.subheader("Ø Gesamt-Reifegrad (Filter)")
-        #     fig_gauge = go.Figure(go.Indicator(
-        #         mode="gauge+number",
-        #         value=group_overall,
-        #         title={'text': f"Niveau: {group_level}"},
-        #         gauge={
-        #             'axis': {'range': [1, 5]},
-        #             'bar': {'color': COLOR_AZUL},
-        #             'steps': [
-        #                 {'range': [1, 2], 'color': "#ffadad"},
-        #                 {'range': [2, 3], 'color': "#ffd6a5"},
-        #                 {'range': [3, 4], 'color': "#fdffb6"},
-        #                 {'range': [4, 5], 'color': "#caffbf"}]
-        #         }
-        #     ))
-        #     fig_gauge.update_layout(height=350, margin=dict(t=50, b=0))
-        #     st.plotly_chart(fig_gauge, use_container_width=True)
-
-        # --- RADAR: COMPARATIVA ---
-        st.subheader("Benchmark & Analyse")
-
-        # 1. Gestión del estado
-        if 'view_mode' not in st.session_state: st.session_state.view_mode = 'general'
-
-
-        def reset_benchmark():
-            st.session_state.view_mode = 'general'
-            st.session_state.id_input_val = ""
-            st.query_params.clear()
-
-        # 2. Input ID (Cambiamos el key para que sea consistente)
-        current_val = st.session_state.get("id_input_val", "")
-        input_id = st.text_input("Geben Sie Ihre Antwort-ID ein:", value=current_val)
-
-        # Solo hacemos reran si el valor cambia realmente, evitando bucles
-        if input_id != current_val:
+        if input_id != id_val:
             st.session_state.id_input_val = input_id
             st.rerun()
 
-        # 3. Lógica de datos unificada (aquí forzamos la sincronización)
-        serie_a_mostrar = None
-        if st.session_state.id_input_val and st.session_state.id_input_val.isdigit():
-            data = df_full[df_full['id'] == int(st.session_state.id_input_val)]
+        # Determinamos los datos principales
+        if id_val and id_val.isdigit():
+            data = df_full[df_full['id'] == int(id_val)]
             if not data.empty:
                 st.session_state.view_mode = 'individual'
-                r_principal = data[score_cols].values.flatten().tolist()
-                score_actual = data['Maturity_Score'].iloc[0]
                 serie_a_mostrar = data.iloc[0]
-                nombre_principal, color_principal = 'Ihr Ergebnis', '#2ecc71'
+                r_principal = serie_a_mostrar[score_cols].values.flatten().tolist()
+                score_actual = serie_a_mostrar['Maturity_Score']
+                nombre_principal = 'Ihr Ergebnis'
                 if st.button("Zurück zum allgemeinen Benchmark", on_click=reset_benchmark): st.rerun()
             else:
                 st.error("ID nicht gefunden.")
                 st.session_state.view_mode = 'general'
-                r_principal = group_means
-                score_actual = filter_avg
-                nombre_principal, color_principal = 'Aktueller Filter', COLOR_VERDE
+                r_principal = df_filtered[dim_cols].mean().tolist()
+                score_actual = df_filtered['Maturity_Score'].mean()
+                nombre_principal = 'Ø Gruppe (Filter)'
+                serie_a_mostrar = None
         else:
             st.session_state.view_mode = 'general'
-            r_principal = group_means
-            score_actual = filter_avg
-            nombre_principal, color_principal = 'Aktueller Filter', COLOR_VERDE
+            r_principal = df_filtered[dim_cols].mean().tolist()
+            score_actual = df_filtered['Maturity_Score'].mean()
+            nombre_principal = 'Ø Gruppe (Filter)'
+            serie_a_mostrar = None
 
-        # 4. KPI METRICS (Sincronizadas)
-        # 2. Bloque de KPI Metrics actualizado
+        # --- KPI Metrics ---
         col1, col2, col3 = st.columns(3)
-
-        # Calculamos la etiqueta dinámica
-        label_actual = get_label_by_score(score_actual)
-
         col1.metric("Ø Maturity Score", f"{score_actual:.2f}")
-        col2.metric("Abstand zum Ziel (5.0)", f"{(5.0 - score_actual):.2f}")
-        col3.metric("Level", label_actual)
+        col2.metric("Abstand zum Ziel", f"{(5.0 - score_actual):.2f}")
+        col3.metric("Level", get_label_by_score(score_actual))
 
-        # --- 3. RADAR CON COMPARADORES ---
-
-        benchmarks = st.multiselect(
-            "Vergleich hinzufügen:",
-            ["Gesamtmarkt", "Branchen-Schnitt", "Unternehmensgröße"]
-        )
-
+        # --- RADAR (Simplificado) ---
         fig_radar = go.Figure()
 
-        # 1. Trazo Principal: SIEMPRE VERDE DE MARCA
+        # 1. Trazo Principal (Tu resultado o promedio general del filtro)
         fig_radar.add_trace(go.Scatterpolar(
             r=r_principal + [r_principal[0]],
             theta=dim_names + [dim_names[0]],
-            fill='toself',
-            fillcolor='rgba(168, 212, 58, 0.2)',  # Verde suave de relleno
-            name=nombre_principal,
-            line=dict(color=COLOR_VERDE, width=3)  # Grosor 3 para que resalte
+            fill='toself', fillcolor='rgba(168, 212, 58, 0.2)',
+            name=nombre_principal, line=dict(color=COLOR_VERDE, width=3)
         ))
 
-        # 2. Trazos comparativos: Colores oscuros/fuertes y mayor grosor
-        if "Gesamtmarkt" in benchmarks:
-            fig_radar.add_trace(go.Scatterpolar(
-                r=global_means + [global_means[0]],
-                theta=dim_names + [dim_names[0]],
-                name='Gesamtmarkt',
-                line=dict(dash='dash', color='#2d2e83', width=2.5)  # Azul oscuro
-            ))
+        # 2. Referencia: Promedio del grupo (Sidebar Filter)
+        group_means = df_filtered[dim_cols].mean().tolist()
+        fig_radar.add_trace(go.Scatterpolar(
+            r=group_means + [group_means[0]],
+            theta=dim_names + [dim_names[0]],
+            name="Ø Gruppe (Filter)",
+            line=dict(dash='dash', color=COLOR_AZUL, width=2.5)
+        ))
 
-        if "Branchen-Schnitt" in benchmarks:
-            sector_actual = serie_a_mostrar['Sector']
-            sec_means = df_full[df_full['Sector'] == sector_actual][score_cols].mean().tolist()
-            fig_radar.add_trace(go.Scatterpolar(
-                r=sec_means + [sec_means[0]],
-                theta=dim_names + [dim_names[0]],
-                name=f'Sektor: {sector_actual}',
-                line=dict(dash='dot', color='#d35400', width=2.5)  # Naranja/Rojo fuerte (contraste)
-            ))
-
-        if "Unternehmensgröße" in benchmarks:
-            size_actual = serie_a_mostrar['Size']
-            size_means = df_full[df_full['Size'] == size_actual][score_cols].mean().tolist()
-            fig_radar.add_trace(go.Scatterpolar(
-                r=size_means + [size_means[0]],
-                theta=dim_names + [dim_names[0]],
-                name=f'Größe: {size_actual}',
-                line=dict(dash='longdash', color='#8e44ad', width=2.5)  # Púrpura fuerte
-            ))
-
-        fig_radar.update_layout(
-            polar=dict(radialaxis=dict(visible=True, range=[1, 5])),
-            legend=dict(orientation="h", y=-0.2),
-            height=500
-        )
-
+        fig_radar.update_layout(polar=dict(radialaxis=dict(visible=True, range=[1, 5])),
+                                legend=dict(orientation="h", y=-0.2), height=500)
         st.plotly_chart(fig_radar, use_container_width=True)
 
-        # --- 4. ACCIÓN: STÄRKEN & SCHWÄCHEN ---
-        st.divider()
-        col_s, col_w = st.columns(2)
+        # --- STÄRKEN & SCHWÄCHEN (Solo si es individual) ---
+        if st.session_state.view_mode == 'individual':
+            st.divider()
+            col_s, col_w = st.columns(2)
+            dim_scores = sorted(zip(dim_names, r_principal), key=lambda x: x[1], reverse=True)
+            with col_s:
+                st.success("Top 3 Stärken")
+                for name, val in dim_scores[:3]: st.write(f"✅ **{name}**: {val:.2f}")
+            with col_w:
+                st.error("Top 3 Handlungsfelder")
+                for name, val in dim_scores[-3:]: st.write(f"⚠️ **{name}**: {val:.2f}")
 
-        # Ordenamos las dimensiones para hallar top 3
-        dim_scores = sorted(zip(dim_names, r_principal), key=lambda x: x[1], reverse=True)
-
-        with col_s:
-            st.success("Top 3 Stärken")
-            for name, val in dim_scores[:3]: st.write(f"✅ **{name}**: {val:.2f}")
-        with col_w:
-            st.error("Top 3 Handlungsfelder")
-            for name, val in dim_scores[-3:]: st.write(f"⚠️ **{name}**: {val:.2f}")
-
-        # --- 5. TABLA DETALLADA ---
+        # --- TABLA DETALLADA ---
         st.divider()
         st.subheader("🚦 Item-Performance")
         dim_key = st.selectbox("Dimension auswählen:", list(CONFIG_WEIGHTS.keys()),
@@ -521,21 +452,14 @@ elif nav == "Benchmark":
             items_list.append(row)
 
         df_p = pd.DataFrame(items_list)
-
-        # Definir formato para redondear a 2 decimales
         format_dict = {"Ø Gruppe": "{:.2f}"}
-        if "Dein Wert" in df_p.columns:
-            format_dict["Dein Wert"] = "{:.2f}"
+        if "Dein Wert" in df_p.columns: format_dict["Dein Wert"] = "{:.2f}"
 
-        # Aplicar estilo de color y formato de redondeo
         st.dataframe(
             df_p.style.apply(
-                lambda row: ['background-color: #d4edda' if (row['Dein Wert'] if 'Dein Wert' in row else row[
-                    'Ø Gruppe']) >= 4
-                             else 'background-color: #f8d7da'] * len(row),
-                axis=1
-            ).format(format_dict),
-            use_container_width=True
+                lambda row: ['background-color: #d4edda' if (row['Dein Wert'] if 'Dein Wert' in row else row['Ø Gruppe']) >= 4
+                             else 'background-color: #f8d7da'] * len(row), axis=1
+            ).format(format_dict), use_container_width=True
         )
 
 
