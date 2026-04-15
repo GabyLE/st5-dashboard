@@ -23,6 +23,16 @@ def local_css(file_name):
     with open(file_name) as f:
         st.markdown(f'<style>{f.read()}</style>', unsafe_allow_html=True)
 
+market_cols = {
+    "marktPosition[erfolg1]": "Erfolg: Letztes Jahr",
+    "marktPosition[erfolg2]": "Erfolg: Aktuelles Jahr",
+    "marktPosition[mpA1]": "Position: Aktuell",
+    "marktPosition[mpA2]": "Position: Kurzfristig",
+    "marktPosition[mpA3]": "Position: Mittelfristig",
+    "marktPosition[mpA4]": "Position: Langfristig"
+}
+
+
 st.set_page_config(page_title="I5.0 Transformation Check", layout="wide")
 local_css("style.css")
 
@@ -68,7 +78,7 @@ if data_source == "LimeSurvey API (Live)":
             df_full = load_from_limesurvey()
             if df_full is not None:
                 st.session_state['df'] = df_full
-                #st.write("Columnas disponibles:", df_full.columns.tolist())
+                st.write("Columnas disponibles:", df_full.columns.tolist())
             else:
                 st.stop()
     else:
@@ -461,7 +471,35 @@ elif nav == "Benchmark":
                              else 'background-color: #f8d7da'] * len(row), axis=1
             ).format(format_dict), use_container_width=True
         )
+        # --- BLOQUE: MERCADO Y ÉXITO ---
+        st.divider()
+        st.subheader("🎯 Markt-Einschätzung & Erfolg")
+        market_data = []
+        for col, label in market_cols.items():
+            # El promedio del grupo siempre está disponible (si hay datos)
+            val_grupo = float(df_filtered[col].mean())
 
+            row = {"Frage": label, "Ø Gruppe (Filter)": val_grupo}
+
+            # Si estamos en modo individual, añadimos la columna personalizada
+            if st.session_state.view_mode == 'individual' and serie_a_mostrar is not None:
+                val_indiv = float(serie_a_mostrar[col])
+                row["Deine Antwort"] = val_indiv
+                row["Differenz"] = val_indiv - val_grupo
+
+            market_data.append(row)
+
+        df_market = pd.DataFrame(market_data)
+
+        # Mostrar tabla con formato condicional solo si tenemos los datos necesarios
+        def highlight_max(s):
+            return ['background-color: #d1e7dd' if v >= 4 else '' for v in s]
+
+        st.dataframe(
+            df_market.style.format({"Ø Gruppe (Filter)": "{:.1f}", "Deine Antwort": "{:.1f}", "Differenz": "{:+.1f}"})
+            .apply(highlight_max, subset=["Ø Gruppe (Filter)"]),
+            use_container_width=True
+        )
 
 
 #tab_gen, tab_ind  = st.tabs(["Allgemeine Analyse", "Benchmark"])
