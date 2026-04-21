@@ -2,19 +2,10 @@
 [server]
 port = 8080
 address = "0.0.0.0"
+enableStaticServing = true
 
 [theme]
-# acento (checkboxes, lines, active states)
-primaryColor = "#2d2e83"
-
-# background
-backgroundColor = "#ffffff"
-
-# sidebar
-secondaryBackgroundColor = "#f8f9fa"
-
-# main text color
+primaryColor = "#102F60"
+backgroundColor = "#FFFFFF"
+secondaryBackgroundColor = "#F0F2F6"
 textColor = "#000000"
-
-# Font
-font = "sans serif"

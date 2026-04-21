@@ -6,12 +6,20 @@ from src.limesurvey import get_responses_df
 from src.config import CONFIG_WEIGHTS, MAP_SECTOR, MAP_NUM_EMP, MM_LEVELS, LIKERT_LABELS
 from src.engine import calculate_maturity, get_level_label
 
-COLOR_AZUL = "#2d2e83"
-COLOR_VERDE = "#a8d43a"
-COLOR_TURQUESA = "#69c0ac"
-COLOR_CELESTE = "#1b85c2"
-COLOR_GRIS = "#b2b2b2"
-CORP_SCALE = [COLOR_GRIS, COLOR_AZUL, COLOR_CELESTE, COLOR_TURQUESA, COLOR_VERDE]
+COLOR_NAVY = "#102F60"     # Primary
+COLOR_CORAL = "#F37B6E"    # Mensch
+COLOR_PURPLE = "#A773B6"   # Resilienz
+COLOR_TEAL = "#188580"     # Nachhaltigkeit
+COLOR_GRAY = "#B2B2B2"     # Neutral
+COLOR_BLACK = "#000000"    # Text
+CORP_SCALE = [COLOR_GRAY, COLOR_NAVY, COLOR_TEAL, COLOR_PURPLE, COLOR_CORAL]
+
+DIMENSION_COLORS = {
+    "Mensch": COLOR_CORAL,
+    "Resilienz": COLOR_PURPLE,
+    "Nachhaltigkeit": COLOR_TEAL,
+    "Default": COLOR_NAVY
+}
 
 market_cols = {
     "marktPosition[erfolg1]": "Erfolg: Letztes Jahr",
@@ -48,6 +56,14 @@ def reset_benchmark():
     st.query_params.clear()
     st.rerun()
 
+def local_css(file_name):
+    try:
+        with open(file_name, encoding="utf-8") as f:
+            st.markdown(f'<style>{f.read()}</style>', unsafe_allow_html=True)
+    except FileNotFoundError:
+        st.error(f"File not found: {file_name}")
+    except Exception as e:
+        st.error(f"Fail to load CSS: {e}")
 
 # --- 3. CARGA DE DATOS ---
 @st.cache_data(ttl=600)
@@ -63,7 +79,7 @@ def load_from_limesurvey():
 
 # --- 4. CONFIGURACIÓN DE PÁGINA ---
 st.set_page_config(page_title="I5.0 Transformation Check", layout="wide")
-# local_css("style.css") # Asegúrate de que este archivo exista
+local_css("assets/css/style.css")
 
 # --- 5. LÓGICA PRINCIPAL Y FLUJO ---
 st.sidebar.header("Datenquelle")
@@ -155,10 +171,10 @@ if df_full is not None:
 col_title, col_logo = st.columns([4,2 ])
 with col_logo:
     # Ajusta el nombre de tu archivo de imagen
-    st.image("img/Logo_ST5.png", width=240)
+    st.image("assets/img/st5.png", width=240)
 
 with col_title:
-    st.title("I5.0 Transformations-Check Standortbestimmung")
+    st.markdown('<h1 class="main-title">I5.0 Transformations-Check Standortbestimmung</h1>', unsafe_allow_html=True)
 
 # --- KEY METRICS  ---
 if df_filtered.empty:
@@ -349,9 +365,33 @@ if nav == "Allgemeine Analyse":
         avg_dims = df_filtered[dim_cols].mean().reset_index()
         avg_dims.columns = ['Dim', 'Mean']
         avg_dims['Name'] = dim_names
-        fig_avg = px.bar(avg_dims, x='Mean', y='Name', orientation='h', text_auto='.2f',
-                         color='Mean', color_continuous_scale=CORP_SCALE, range_color=[1, 5], )
-        # color_continuous_scale='GnBu')
+
+        # 1. Crear el gráfico con range_x fijo en [1, 5]
+        fig_avg = px.bar(avg_dims,
+                         x='Mean',
+                         y='Name',
+                         orientation='h',
+                         text_auto='.2f',
+                         color='Mean',
+                         color_continuous_scale=CORP_SCALE,
+                         range_color=[1, 5])
+
+        # 2. Configurar el eje X y añadir líneas guía
+        fig_avg.update_layout(
+            xaxis=dict(range=[1, 5], dtick=1),  # Fuerza el eje de 1 a 5 con marcas cada 1
+            showlegend=False
+        )
+
+        # 3. Añadir líneas verticales para los niveles de MM_LEVELS (opcional pero recomendado)
+        for val in [2.0, 3.0, 4.0]:
+            fig_avg.add_vline(x=val, line_dash="dash", line_color="#B2B2B2", line_width=1)
+
+        # 4. (Opcional) Si quieres que el usuario sepa qué es 4 o 5, puedes añadir anotaciones sutiles arriba
+        fig_avg.add_annotation(x=4.5, y=1.1, text="Senior", showarrow=False, xref="x", yref="paper",
+                               font=dict(color="#B2B2B2"))
+        fig_avg.add_annotation(x=1.5, y=1.1, text="Außenseiter", showarrow=False, xref="x", yref="paper",
+                               font=dict(color="#B2B2B2"))
+
         st.plotly_chart(fig_avg, use_container_width=True)
 
 elif nav == "Benchmark":
@@ -410,8 +450,8 @@ elif nav == "Benchmark":
         fig_radar.add_trace(go.Scatterpolar(
             r=r_principal + [r_principal[0]],
             theta=dim_names + [dim_names[0]],
-            fill='toself', fillcolor='rgba(168, 212, 58, 0.2)',
-            name=nombre_principal, line=dict(color=COLOR_VERDE, width=3)
+            fill='toself', fillcolor='rgba(243, 123, 110, 0.2)',
+            name=nombre_principal, line=dict(color=COLOR_CORAL, width=3)
         ))
 
         # 2. Referencia: Promedio del grupo (Sidebar Filter)
@@ -420,7 +460,7 @@ elif nav == "Benchmark":
             r=group_means + [group_means[0]],
             theta=dim_names + [dim_names[0]],
             name="Ø Gruppe (Filter)",
-            line=dict(dash='dash', color=COLOR_AZUL, width=2.5)
+            line=dict(dash='dash', color=COLOR_NAVY, width=2.5)
         ))
 
         fig_radar.update_layout(polar=dict(radialaxis=dict(visible=True, range=[1, 5])),

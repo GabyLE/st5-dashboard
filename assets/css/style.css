@@ -1,0 +1,114 @@
+/* style.css */
+@font-face {
+    font-family: 'Boston';
+    src: url('../fonts/Boston/Boston-Regular.woff2') format('opentype');
+    font-weight: 400;
+}
+
+@font-face {
+    font-family: 'Boston';
+    src: url('/assets/fonts/Boston/Boston-Bold.woff2') format('opentype');
+    font-weight: 700;
+}
+
+/* 2. CONFIGURACIÓN GLOBAL */
+html, body, [class*="css"], .stMarkdown {
+    font-family: 'Boston', sans-serif !important;
+    color: #000000; /* Negro para texto principal */
+}
+
+/* 3. TIPOGRAFÍA (H1, H2, H3, Body, Caption) */
+h1 {
+    font-size: 2.25em !important;
+    font-weight: 700 !important;
+    color: #102F60 !important; /* Main Navy */
+    margin-bottom: 0.5rem !important;
+}
+
+h2 {
+    font-size: 1.75em !important;
+    font-weight: 700 !important;
+    color: #102F60 !important; /* Main Navy */
+}
+
+h3 {
+    font-size: 1.35em !important;
+    font-weight: 600 !important;
+    color: #102F60 !important; /* Main Navy */
+}
+
+p, span, label {
+    font-size: 1em;
+    font-weight: 400;
+}
+
+img {
+    border-radius: 0px !important;
+}
+
+.stCaption {
+    font-size: 0.85em !important;
+    color: #B2B2B2 !important; /* Gray */
+}
+
+/* 4. BOTONES (Primary y Outline) */
+/* Botón Principal (Navy) */
+.stButton>button {
+    background-color: #102F60;
+    color: white;
+    border-radius: 4px;
+    border: 2px solid #102F60;
+    font-weight: 600;
+    padding: 0.5rem 1rem;
+    transition: all 0.3s ease;
+}
+
+.stButton>button:hover {
+    background-color: #188580 !important; /* Teal en hover */
+    border-color: #188580 !important;
+    color: white !important;
+}
+
+/* 5. TARJETAS MÉTRICAS (Ajustadas a Navy y Gray) */
+.metric-card {
+    background-color: #ffffff;
+    padding: 20px;
+    border-radius: 12px;
+    border: 1px solid #B2B2B2; /* Gray */
+    border-top: 5px solid #102F60; /* Main Navy */
+    box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+    text-align: center;
+    height: 140px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    margin-bottom: 15px;
+}
+
+.metric-label {
+    font-size: 13px;
+    color: #102F60; /* Navy */
+    text-transform: uppercase;
+    font-weight: 700;
+    margin-bottom: 8px;
+}
+
+.metric-value {
+    font-size: 28px;
+    font-weight: 700;
+    color: #000000; /* Black */
+}
+
+.metric-subtext {
+    font-size: 14px;
+    color: #B2B2B2; /* Gray */
+    font-weight: 400;
+}
+
+/* 6. COLORES PARA SUBPROYECTOS (Solo uso específico) */
+.text-mensch { color: #F37B6E; }   /* Coral */
+.text-resilienz { color: #A773B6; } /* Purple */
+.text-nachhaltigkeit { color: #188580; } /* Teal */
+
+
+
