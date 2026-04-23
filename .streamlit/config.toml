@@ -1,11 +1,21 @@
-# .streamlit/config.toml
 [server]
 port = 8080
 address = "0.0.0.0"
+
+enableCORS = false
+enableXsrfProtection = false
+
+
 enableStaticServing = true
+
+[browser]
+serverAddress = "st-5-dashboard2.co-creative-labs.com"
+serverPort = 443
+gatherUsageStats = false
 
 [theme]
 primaryColor = "#102F60"
 backgroundColor = "#FFFFFF"
 secondaryBackgroundColor = "#F0F2F6"
 textColor = "#000000"
+font = "sans serif"
