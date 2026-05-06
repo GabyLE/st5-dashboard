@@ -54,7 +54,6 @@ def reset_benchmark():
     st.session_state.view_mode = 'general'
     st.session_state.id_input_val = ""
     st.query_params.clear()
-    #st.rerun()
 
 def local_css(file_name):
     try:
@@ -65,7 +64,7 @@ def local_css(file_name):
     except Exception as e:
         st.error(f"Fail to load CSS: {e}")
 
-# --- 3. CARGA DE DATOS ---
+# --- 3. LOAD DATA ---
 @st.cache_data(ttl=600)
 def load_from_limesurvey():
     try:
@@ -77,10 +76,10 @@ def load_from_limesurvey():
         return None
 
 
-# --- 4. CONFIGURACIÓN DE PÁGINA ---
+# --- 4. PAGE CONFIGURATION ---
 st.set_page_config(page_title="I5.0 Transformation Check", layout="wide")
 local_css("assets/css/style.css")
-# --- OCULTAR MENÚ Y FOOTER ---
+# --- HIDE MENU AND FOOTER ---
 hide_streamlit_style = """
             <style>
             #MainMenu {visibility: hidden;}
@@ -91,7 +90,7 @@ hide_streamlit_style = """
             """
 st.markdown(hide_streamlit_style, unsafe_allow_html=True)
 
-# --- 5. LÓGICA PRINCIPAL Y FLUJO ---
+# --- 5. MAIN LOGIC AND FLUX ---
 st.sidebar.header("Datenquelle")
 data_source = st.sidebar.radio("Quelle auswählen:", ["LimeSurvey API (Live)", "CSV-Datei hochladen"])
 
@@ -107,7 +106,7 @@ else:
         raw = pd.read_csv(uploaded_file, sep=None, engine='python')
         st.session_state['df'] = calculate_maturity(raw)
 
-# --- 6. PROCESAMIENTO FINAL Y SINCRONIZACIÓN ---
+# --- 6. FINAL PROCESSING AND SYNCHRONIZATION ---
 df_full = st.session_state['df']
 
 if df_full is not None:
@@ -115,13 +114,13 @@ if df_full is not None:
     df_full['Size'] = df_full['anzMA'].map(MAP_NUM_EMP)
     df_full['PLZ_Group'] = df_full['plz'].astype(str).str[:2]
 
-    # Sincronización URL
+    # URL Synchronization
     query_params = st.query_params
     url_id = query_params.get("id")
     url_site = query_params.get("site")
 
     if url_id and str(url_id) not in df_full['id'].astype(str).values:
-        with st.spinner('Sincronizando ID...'):
+        with st.spinner('Synchronisierte ID...'):
             st.cache_data.clear()
             st.session_state['df'] = load_from_limesurvey()
             st.rerun()
@@ -152,17 +151,17 @@ if df_full is not None:
     st.sidebar.divider()
     st.sidebar.header("Globaler Filter")
 
-    # 1. Obtener listas únicas para los selectores
+    # 1. Get unique lists for selectors
     list_real_sectors = sorted(df_full['Sector'].unique().tolist())
-    list_real_regions = sorted(df_full['PLZ_Group'].unique().tolist())  # Regiones por código postal
+    list_real_regions = sorted(df_full['PLZ_Group'].unique().tolist())
     list_sizes = list(MAP_NUM_EMP.values())
 
-    # 2. Widgets de la Sidebar
+    # 2. Widgets from the Sidebar
     filter_sectors = st.sidebar.multiselect("Branchen auswählen", options=list_real_sectors, default=[])
     filter_sizes = st.sidebar.multiselect("Unternehmensgrößen auswählen", options=list_sizes, default=[])
     filter_regions = st.sidebar.multiselect("Regionen (PLZ Zone) auswählen", options=list_real_regions, default=[])
 
-    # 3. Lógica de filtrado acumulativo
+    # 3. Accumulative filter logic
     df_filtered = df_full.copy()
 
     if filter_sectors:
@@ -174,7 +173,7 @@ if df_full is not None:
     if filter_regions:
         df_filtered = df_filtered[df_filtered['PLZ_Group'].isin(filter_regions)]
 
-    # Mostrar un aviso si el filtro deja el dashboard vacío
+    # Warning if dashboard is empty due to the filters applied
     if df_filtered.empty:
         st.warning("Keine Daten für diese Auswahl gefunden.")
 
@@ -301,7 +300,7 @@ else:
             st.markdown(f'''<div class="metric-card">
                 <div class="metric-label">Unternehmen</div>
                 <div class="metric-value">{filter_n}</div>
-                <div class="metric-subtext">Global: {global_n}</div>
+                <!-- <div class="metric-subtext">Global: {global_n}</div> -->
             </div>''', unsafe_allow_html=True)
 
         with c2:
@@ -309,7 +308,7 @@ else:
             st.markdown(f'''<div class="metric-card">
                 <div class="metric-label">Ø Maturity</div>
                 <div class="metric-value">{filter_avg:.2f}</div>
-                <div class="metric-subtext">{filter_level} <br> <span style="font-size:11px;">(Global: {global_avg:.2f})</span></div>
+                <!-- <div class="metric-subtext">{filter_level} <br> <span style="font-size:11px;">(Global: {global_avg:.2f})</span></div> -->
             </div>''', unsafe_allow_html=True)
 
         with c3:
@@ -391,7 +390,7 @@ if nav == "Allgemeine Analyse":
         avg_dims.columns = ['Dim', 'Mean']
         avg_dims['Name'] = dim_names
 
-        # 1. Crear el gráfico con range_x fijo en [1, 5]
+        # 1. Create graphic with range_x fix at [1, 5]
         fig_avg = px.bar(avg_dims,
                          x='Mean',
                          y='Name',
@@ -401,13 +400,13 @@ if nav == "Allgemeine Analyse":
                          color_continuous_scale=CORP_SCALE,
                          range_color=[1, 5])
 
-        # 2. Configurar el eje X y añadir líneas guía
+        # 2. Configure axe and add guidelines
         fig_avg.update_layout(
-            xaxis=dict(range=[1, 5], dtick=1),  # Fuerza el eje de 1 a 5 con marcas cada 1
+            xaxis=dict(range=[1, 5], dtick=1),
             showlegend=False
         )
 
-        # 3. Añadir líneas verticales para los niveles de MM_LEVELS (opcional pero recomendado)
+        # 3. Add vertical lines for MM_LEVELS
         for val in [2.0, 3.0, 4.0]:
             fig_avg.add_vline(x=val, line_dash="dash", line_color="#B2B2B2", line_width=1)
 
@@ -423,14 +422,14 @@ elif nav == "Benchmark":
     score_cols = [f"Score_{dim}" for dim in CONFIG_WEIGHTS.keys()]
     dim_names = [d["name_de"] for d in CONFIG_WEIGHTS.values()]
 
-    # 1. Avisar si hay filtros activos
+    # 1. Warn if there are active filters
     if len(filter_sectors) > 0 or len(filter_sizes) > 0 or len(filter_regions) > 0:
         st.info(f"💡 Benchmark-Ansicht: Gefiltert auf {len(df_filtered)} Unternehmen.")
 
     if df_filtered.empty and 'id_input_val' not in st.session_state:
         st.warning("Keine Daten mit den aktuellen Filtern verfügbar.")
     else:
-        # --- Lógica de Estado ---
+        # --- State logic ---
         id_val = st.session_state.get("id_input_val", "")
         input_id = st.text_input("Geben Sie Ihre Antwort-ID ein:", value=id_val)
 
@@ -438,7 +437,6 @@ elif nav == "Benchmark":
             st.session_state.id_input_val = input_id
             st.rerun()
 
-        # Determinamos los datos principales
         if id_val and id_val.isdigit():
             data = df_full[df_full['id'] == int(id_val)]
             if not data.empty:
@@ -453,13 +451,13 @@ elif nav == "Benchmark":
                 st.session_state.view_mode = 'general'
                 r_principal = df_filtered[dim_cols].mean().tolist()
                 score_actual = df_filtered['Maturity_Score'].mean()
-                nombre_principal = 'Ø Gruppe (Filter)'
+                nombre_principal = 'Ø Global'
                 serie_a_mostrar = None
         else:
             st.session_state.view_mode = 'general'
             r_principal = df_filtered[dim_cols].mean().tolist()
             score_actual = df_filtered['Maturity_Score'].mean()
-            nombre_principal = 'Ø Gruppe (Filter)'
+            nombre_principal = 'Ø Global'
             serie_a_mostrar = None
 
         # --- KPI Metrics ---
@@ -468,10 +466,10 @@ elif nav == "Benchmark":
         col2.metric("Abstand zum Ziel", f"{(5.0 - score_actual):.2f}")
         col3.metric("Level", get_label_by_score(score_actual))
 
-        # --- RADAR (Simplificado) ---
+        # --- RADAR ---
         fig_radar = go.Figure()
 
-        # 1. Trazo Principal (Tu resultado o promedio general del filtro)
+        # 1. Main line
         fig_radar.add_trace(go.Scatterpolar(
             r=r_principal + [r_principal[0]],
             theta=dim_names + [dim_names[0]],
@@ -479,12 +477,12 @@ elif nav == "Benchmark":
             name=nombre_principal, line=dict(color=COLOR_CORAL, width=3)
         ))
 
-        # 2. Referencia: Promedio del grupo (Sidebar Filter)
+        # 2. Sidebar Filter
         group_means = df_filtered[dim_cols].mean().tolist()
         fig_radar.add_trace(go.Scatterpolar(
             r=group_means + [group_means[0]],
             theta=dim_names + [dim_names[0]],
-            name="Ø Gruppe (Filter)",
+            name="Ø Global",
             line=dict(dash='dash', color=COLOR_NAVY, width=2.5)
         ))
 
@@ -492,7 +490,7 @@ elif nav == "Benchmark":
                                 legend=dict(orientation="h", y=-0.2), height=500)
         st.plotly_chart(fig_radar, width="stretch")
 
-        # --- STÄRKEN & SCHWÄCHEN (Solo si es individual) ---
+        # --- STÄRKEN & SCHWÄCHEN (just for individual) ---
         if st.session_state.view_mode == 'individual':
             st.divider()
             col_s, col_w = st.columns(2)
@@ -504,7 +502,7 @@ elif nav == "Benchmark":
                 st.error("Top 3 Handlungsfelder")
                 for name, val in dim_scores[-3:]: st.write(f"⚠️ **{name}**: {val:.2f}")
 
-        # --- TABLA DETALLADA ---
+        # --- DETAILED TABLE ---
         st.divider()
         st.subheader("🚦 Item-Performance")
         dim_key = st.selectbox("Dimension auswählen:", list(CONFIG_WEIGHTS.keys()),
@@ -513,32 +511,32 @@ elif nav == "Benchmark":
         items_list = []
         for i_id, i_info in CONFIG_WEIGHTS[dim_key]['items'].items():
             val_grupo = float(df_filtered[i_info['ls_code']].mean())
-            row = {"Item": i_info['name_de'], "Ø Gruppe": val_grupo}
+            row = {"Item": i_info['name_de'], "Ø Global": val_grupo}
             if st.session_state.view_mode == 'individual':
                 row["Ihr Ergebnis"] = float(serie_a_mostrar[i_info['ls_code']])
             items_list.append(row)
 
         df_p = pd.DataFrame(items_list)
-        format_dict = {"Ø Gruppe": "{:.2f}"}
+        format_dict = {"Ø Global": "{:.2f}"}
         if "Ihr Ergebnis" in df_p.columns: format_dict["Ihr Ergebnis"] = "{:.2f}"
 
         st.dataframe(
             df_p.style.apply(
-                lambda row: ['background-color: #d4edda' if (row['Ihr Ergebnis'] if 'Ihr Ergebnis' in row else row['Ø Gruppe']) >= 4
+                lambda row: ['background-color: #d4edda' if (row['Ihr Ergebnis'] if 'Ihr Ergebnis' in row else row['Ø Global']) >= 4
                              else 'background-color: #f8d7da'] * len(row), axis=1
             ).format(format_dict), width="stretch"
         )
-        # --- BLOQUE: MERCADO Y ÉXITO ---
+        # --- ANTWORTEN ---
         st.divider()
         st.subheader("🎯 Ihre Antwort")
         market_data = []
         for col, label in market_cols.items():
-            # El promedio del grupo siempre está disponible (si hay datos)
+
             val_grupo = float(df_filtered[col].mean())
 
-            row = {"Frage": label, "Ø Gruppe (Filter)": val_grupo}
+            row = {"Frage": label, "Ø Global": val_grupo}
 
-            # Si estamos en modo individual, añadimos la columna personalizada
+            # add individual column
             if st.session_state.view_mode == 'individual' and serie_a_mostrar is not None:
                 val_indiv = float(serie_a_mostrar[col])
                 row["Ihre Antwort"] = val_indiv
@@ -548,29 +546,11 @@ elif nav == "Benchmark":
 
         df_market = pd.DataFrame(market_data)
 
-        # Mostrar tabla con formato condicional solo si tenemos los datos necesarios
         def highlight_max(s):
             return ['background-color: #d1e7dd' if v >= 4 else '' for v in s]
 
         st.dataframe(
-            df_market.style.format({"Ø Gruppe (Filter)": "{:.1f}", "Ihre Antwort": "{:.1f}", "Differenz": "{:+.1f}"})
-            .apply(highlight_max, subset=["Ø Gruppe (Filter)"]),
+            df_market.style.format({"Ø Global": "{:.1f}", "Ihre Antwort": "{:.1f}", "Differenz": "{:+.1f}"})
+            .apply(highlight_max, subset=["Ø Global"]),
             width="stretch"
         )
-
-
-#tab_gen, tab_ind  = st.tabs(["Allgemeine Analyse", "Benchmark"])
-
-# # ==========================================
-# # tab 2: BENCHMARK GRUPAL (Antes Individual)
-# # ==========================================
-# with tab_ind:
-#     # 1. DEFINICIONES SIEMPRE PRESENTES (Fuera de cualquier 'if')
-#     # Esto asegura que score_cols siempre exista para el gráfico
-#
-#
-# # ==========================================
-# # TAB 2: GENERAL
-# # ==========================================
-# with tab_gen:
-#
