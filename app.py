@@ -54,7 +54,7 @@ def reset_benchmark():
     st.session_state.view_mode = 'general'
     st.session_state.id_input_val = ""
     st.query_params.clear()
-    st.rerun()
+    #st.rerun()
 
 def local_css(file_name):
     try:
@@ -120,7 +120,7 @@ if df_full is not None:
         st.session_state.current_tab = "Benchmark"
         st.session_state.view_mode = 'individual'
 
-    # AQUÍ COMIENZA TU DASHBOARD (gráficos, tablas, etc.)
+
 else:
     st.info("Bitte laden Sie Daten, um fortzufahren.")
 
@@ -170,7 +170,7 @@ if df_full is not None:
 # --- HEADER CON LOGO Y TÍTULO ---
 col_title, col_logo = st.columns([4,2 ])
 with col_logo:
-    # Ajusta el nombre de tu archivo de imagen
+
     st.image("assets/img/st5.png", width=240)
 
 with col_title:
@@ -240,12 +240,12 @@ else:
     """, unsafe_allow_html=True)
 
     if df_full is not None:
-        # Métricas del Filtro (Lo que cambia)
+        # Métricas del Filtro
         filter_n = len(df_filtered)
         filter_avg = df_filtered['Maturity_Score'].mean()
         filter_level = get_level_label(filter_avg)
 
-        # Métricas Globales (Lo que se mantiene fijo como referencia)
+        # Métricas Globales
         global_n = len(df_full)
         global_avg = df_full['Maturity_Score'].mean()
 
@@ -272,7 +272,7 @@ else:
             </div>''', unsafe_allow_html=True)
 
         with c2:
-            # Aquí mostramos el score del filtro y abajo el global
+
             st.markdown(f'''<div class="metric-card">
                 <div class="metric-label">Ø Maturity</div>
                 <div class="metric-value">{filter_avg:.2f}</div>
@@ -329,7 +329,7 @@ if nav == "Allgemeine Analyse":
             title="Größe = Anzahl Firmen | Farbe = Reifegrad"
         )
         fig_tree.update_traces(textinfo="label+value")
-        st.plotly_chart(fig_tree, use_container_width=True)
+        st.plotly_chart(fig_tree, width="stretch")
 
     with col2:
         st.subheader("Aufteilung nach Sektoren")
@@ -348,7 +348,7 @@ if nav == "Allgemeine Analyse":
         )
 
         fig_sec.update_layout(coloraxis_showscale=True)
-        st.plotly_chart(fig_sec, use_container_width=True)
+        st.plotly_chart(fig_sec, width="stretch")
 
     st.divider()
     col3, col4 = st.columns(2)
@@ -358,7 +358,7 @@ if nav == "Allgemeine Analyse":
         fig_box = px.box(df_filtered, x='Size', y='Maturity_Score', color='Size', color_discrete_sequence=CORP_SCALE,
                          category_orders={"Size": ["<= 10", "<= 50", "<= 100", "<= 250", "> 250"]})
 
-        st.plotly_chart(fig_box, use_container_width=True)
+        st.plotly_chart(fig_box, width="stretch")
 
     with col4:
         st.subheader("Globaldurchschnitt der Dimensionen")
@@ -386,13 +386,13 @@ if nav == "Allgemeine Analyse":
         for val in [2.0, 3.0, 4.0]:
             fig_avg.add_vline(x=val, line_dash="dash", line_color="#B2B2B2", line_width=1)
 
-        # 4. (Opcional) Si quieres que el usuario sepa qué es 4 o 5, puedes añadir anotaciones sutiles arriba
+
         fig_avg.add_annotation(x=4.5, y=1.1, text="Senior", showarrow=False, xref="x", yref="paper",
                                font=dict(color="#B2B2B2"))
         fig_avg.add_annotation(x=1.5, y=1.1, text="Außenseiter", showarrow=False, xref="x", yref="paper",
                                font=dict(color="#B2B2B2"))
 
-        st.plotly_chart(fig_avg, use_container_width=True)
+        st.plotly_chart(fig_avg, width="stretch")
 
 elif nav == "Benchmark":
     score_cols = [f"Score_{dim}" for dim in CONFIG_WEIGHTS.keys()]
@@ -422,7 +422,7 @@ elif nav == "Benchmark":
                 r_principal = serie_a_mostrar[score_cols].values.flatten().tolist()
                 score_actual = serie_a_mostrar['Maturity_Score']
                 nombre_principal = 'Ihr Ergebnis'
-                if st.button("Zurück zum allgemeinen Benchmark", on_click=reset_benchmark): st.rerun()
+                st.button("Zurück zum allgemeinen Benchmark", on_click=reset_benchmark)
             else:
                 st.error("ID nicht gefunden.")
                 st.session_state.view_mode = 'general'
@@ -465,7 +465,7 @@ elif nav == "Benchmark":
 
         fig_radar.update_layout(polar=dict(radialaxis=dict(visible=True, range=[1, 5])),
                                 legend=dict(orientation="h", y=-0.2), height=500)
-        st.plotly_chart(fig_radar, use_container_width=True)
+        st.plotly_chart(fig_radar, width="stretch")
 
         # --- STÄRKEN & SCHWÄCHEN (Solo si es individual) ---
         if st.session_state.view_mode == 'individual':
@@ -501,7 +501,7 @@ elif nav == "Benchmark":
             df_p.style.apply(
                 lambda row: ['background-color: #d4edda' if (row['Dein Wert'] if 'Dein Wert' in row else row['Ø Gruppe']) >= 4
                              else 'background-color: #f8d7da'] * len(row), axis=1
-            ).format(format_dict), use_container_width=True
+            ).format(format_dict), width="stretch"
         )
         # --- BLOQUE: MERCADO Y ÉXITO ---
         st.divider()
@@ -530,7 +530,7 @@ elif nav == "Benchmark":
         st.dataframe(
             df_market.style.format({"Ø Gruppe (Filter)": "{:.1f}", "Deine Antwort": "{:.1f}", "Differenz": "{:+.1f}"})
             .apply(highlight_max, subset=["Ø Gruppe (Filter)"]),
-            use_container_width=True
+            width="stretch"
         )
 
 

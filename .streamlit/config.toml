@@ -8,10 +8,6 @@ enableXsrfProtection = false
 
 enableStaticServing = true
 
-[browser]
-serverAddress = "st-5-dashboard2.co-creative-labs.com"
-serverPort = 443
-gatherUsageStats = false
 
 [theme]
 primaryColor = "#102F60"
