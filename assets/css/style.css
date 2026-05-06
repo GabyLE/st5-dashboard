@@ -110,5 +110,7 @@ img {
 .text-resilienz { color: #A773B6; } /* Purple */
 .text-nachhaltigkeit { color: #188580; } /* Teal */
 
-
-
+/* Oculta la sidebar completamente */
+section[data-testid="stSidebar"] {
+    display: none;
+}

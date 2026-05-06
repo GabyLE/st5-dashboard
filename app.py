@@ -80,6 +80,16 @@ def load_from_limesurvey():
 # --- 4. CONFIGURACIÓN DE PÁGINA ---
 st.set_page_config(page_title="I5.0 Transformation Check", layout="wide")
 local_css("assets/css/style.css")
+# --- OCULTAR MENÚ Y FOOTER ---
+hide_streamlit_style = """
+            <style>
+            #MainMenu {visibility: hidden;}
+            header {visibility: hidden;}
+            footer {visibility: hidden;}
+            .stAppDeployButton {display:none;}
+            </style>
+            """
+st.markdown(hide_streamlit_style, unsafe_allow_html=True)
 
 # --- 5. LÓGICA PRINCIPAL Y FLUJO ---
 st.sidebar.header("Datenquelle")
@@ -106,8 +116,9 @@ if df_full is not None:
     df_full['PLZ_Group'] = df_full['plz'].astype(str).str[:2]
 
     # Sincronización URL
-    params = st.query_params
-    url_id = params.get("id")
+    query_params = st.query_params
+    url_id = query_params.get("id")
+    url_site = query_params.get("site")
 
     if url_id and str(url_id) not in df_full['id'].astype(str).values:
         with st.spinner('Sincronizando ID...'):
@@ -168,13 +179,35 @@ if df_full is not None:
         st.warning("Keine Daten für diese Auswahl gefunden.")
 
 # --- HEADER CON LOGO Y TÍTULO ---
-col_title, col_logo = st.columns([4,2 ])
-with col_logo:
+#col_title, col_logo = st.columns([4,2 ])
+#with col_logo:
 
-    st.image("assets/img/st5.png", width=240)
+#    st.image("assets/img/st5.png", width=240)
 
-with col_title:
-    st.markdown('<h1 class="main-title">I5.0 Transformations-Check Standortbestimmung</h1>', unsafe_allow_html=True)
+#with col_title:
+#    st.markdown('<h1 class="main-title">I5.0 Transformations-Check Standortbestimmung</h1>', unsafe_allow_html=True)
+
+# --- TABS ---
+if 'current_tab' not in st.session_state:
+    if url_id:
+        st.session_state.current_tab = "Benchmark"
+    elif url_site == "1":
+        st.session_state.current_tab = "Benchmark"
+    else:
+        st.session_state.current_tab = "Allgemeine Analyse"
+
+nav_options = ["Allgemeine Analyse", "Benchmark"]
+current_index = nav_options.index(st.session_state.current_tab)
+nav = st.radio(
+    "Navigation",
+    nav_options,
+    index=current_index,
+    horizontal=True,
+    key="nav_radio", 
+    label_visibility="collapsed"
+)
+
+st.session_state.current_tab = nav
 
 # --- KEY METRICS  ---
 if df_filtered.empty:
@@ -293,15 +326,7 @@ else:
 
     st.divider()
 
-# --- TABS ---
-if 'current_tab' not in st.session_state:
-    st.session_state.current_tab = "Allgemeine Analyse"
 
-nav = st.radio("Navigation", ["Allgemeine Analyse", "Benchmark"],
-               index=["Allgemeine Analyse", "Benchmark"].index(st.session_state.current_tab),
-               horizontal=True, key="nav_radio", label_visibility="collapsed")
-
-st.session_state.current_tab = nav
 
 if nav == "Allgemeine Analyse":
     st.header("Panorama der digitalen Reife")
@@ -490,22 +515,22 @@ elif nav == "Benchmark":
             val_grupo = float(df_filtered[i_info['ls_code']].mean())
             row = {"Item": i_info['name_de'], "Ø Gruppe": val_grupo}
             if st.session_state.view_mode == 'individual':
-                row["Dein Wert"] = float(serie_a_mostrar[i_info['ls_code']])
+                row["Ihr Ergebnis"] = float(serie_a_mostrar[i_info['ls_code']])
             items_list.append(row)
 
         df_p = pd.DataFrame(items_list)
         format_dict = {"Ø Gruppe": "{:.2f}"}
-        if "Dein Wert" in df_p.columns: format_dict["Dein Wert"] = "{:.2f}"
+        if "Ihr Ergebnis" in df_p.columns: format_dict["Ihr Ergebnis"] = "{:.2f}"
 
         st.dataframe(
             df_p.style.apply(
-                lambda row: ['background-color: #d4edda' if (row['Dein Wert'] if 'Dein Wert' in row else row['Ø Gruppe']) >= 4
+                lambda row: ['background-color: #d4edda' if (row['Ihr Ergebnis'] if 'Ihr Ergebnis' in row else row['Ø Gruppe']) >= 4
                              else 'background-color: #f8d7da'] * len(row), axis=1
             ).format(format_dict), width="stretch"
         )
         # --- BLOQUE: MERCADO Y ÉXITO ---
         st.divider()
-        st.subheader("🎯 Markt-Einschätzung & Erfolg")
+        st.subheader("🎯 Ihre Antwort")
         market_data = []
         for col, label in market_cols.items():
             # El promedio del grupo siempre está disponible (si hay datos)
@@ -516,7 +541,7 @@ elif nav == "Benchmark":
             # Si estamos en modo individual, añadimos la columna personalizada
             if st.session_state.view_mode == 'individual' and serie_a_mostrar is not None:
                 val_indiv = float(serie_a_mostrar[col])
-                row["Deine Antwort"] = val_indiv
+                row["Ihre Antwort"] = val_indiv
                 row["Differenz"] = val_indiv - val_grupo
 
             market_data.append(row)
@@ -528,7 +553,7 @@ elif nav == "Benchmark":
             return ['background-color: #d1e7dd' if v >= 4 else '' for v in s]
 
         st.dataframe(
-            df_market.style.format({"Ø Gruppe (Filter)": "{:.1f}", "Deine Antwort": "{:.1f}", "Differenz": "{:+.1f}"})
+            df_market.style.format({"Ø Gruppe (Filter)": "{:.1f}", "Ihre Antwort": "{:.1f}", "Differenz": "{:+.1f}"})
             .apply(highlight_max, subset=["Ø Gruppe (Filter)"]),
             width="stretch"
         )
