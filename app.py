@@ -79,16 +79,32 @@ def load_from_limesurvey():
 # --- 4. PAGE CONFIGURATION ---
 st.set_page_config(page_title="I5.0 Transformation Check", layout="wide")
 local_css("assets/css/style.css")
-# --- HIDE MENU AND FOOTER ---
-hide_streamlit_style = """
-            <style>
-            #MainMenu {visibility: hidden;}
-            header {visibility: hidden;}
-            footer {visibility: hidden;}
-            .stAppDeployButton {display:none;}
-            </style>
-            """
-st.markdown(hide_streamlit_style, unsafe_allow_html=True)
+# --- CSS PARA UN BOTÓN "NATIVO" FLOTANTE ---
+# --- CSS INTEGRADO: INTERFAZ + IMPRESIÓN + OCULTAR MENÚ ---
+st.markdown("""
+    <style>
+    #MainMenu {visibility: visible !important;}
+    header {visibility: visible !important;}
+
+    /* HIDE 'DEPLOY' */
+    .stAppDeployButton {display:none !important;}
+
+    @media print {
+        /* LEGAL (216x343mm) */
+        @page {
+            size: 343mm 216mm;
+            margin: 5mm !important;
+        }
+
+        [data-testid="stVerticalBlock"] > div {
+            display: block !important;
+            position: relative !important;
+            margin-bottom: 20px !important;
+            page-break-inside: avoid !important;
+        }
+    }
+    </style>
+""", unsafe_allow_html=True)
 
 # --- 5. MAIN LOGIC AND FLUX ---
 st.sidebar.header("Datenquelle")
