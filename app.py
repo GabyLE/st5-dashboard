@@ -1,4 +1,5 @@
 import streamlit as st
+import time
 import pandas as pd
 import plotly.graph_objects as go
 import plotly.express as px
@@ -79,32 +80,67 @@ def load_from_limesurvey():
 # --- 4. PAGE CONFIGURATION ---
 st.set_page_config(page_title="I5.0 Transformation Check", layout="wide")
 local_css("assets/css/style.css")
-# --- CSS PARA UN BOTÓN "NATIVO" FLOTANTE ---
-# --- CSS INTEGRADO: INTERFAZ + IMPRESIÓN + OCULTAR MENÚ ---
+# 2. CSS PARA OCULTAR MENÚ NATIVO Y CORREGIR IMPRESIÓN
 st.markdown("""
     <style>
-    #MainMenu {visibility: visible !important;}
-    header {visibility: visible !important;}
-
-    /* HIDE 'DEPLOY' */
+    /* OCULTAR MENÚ NATIVO (TRES PUNTOS) Y BOTÓN DEPLOY */
+    #MainMenu {visibility: hidden;}
+    header {visibility: hidden;}
     .stAppDeployButton {display:none !important;}
 
     @media print {
-        /* LEGAL (216x343mm) */
-        @page {
-            size: 343mm 216mm;
-            margin: 5mm !important;
+        /* RESET DE ESTRUCTURA */
+        html, body, .stApp, .main, .block-container {
+            display: block !important;
+            width: 100% !important;
+            height: auto !important;
+            overflow: visible !important;
+            padding: 0 !important;
+            margin: 0 !important;
         }
 
-        [data-testid="stVerticalBlock"] > div {
+        /* EVITAR CORTES EN GRÁFICOS Y TABLAS */
+        .element-container, .stPlotlyChart, [data-testid="column"], .stTable {
+            width: 100% !important;
             display: block !important;
-            position: relative !important;
-            margin-bottom: 20px !important;
             page-break-inside: avoid !important;
+            margin-bottom: 25px !important;
+        }
+
+        /* FORZAR COLORES Y QUITAR INTERFAZ */
+        header, footer, .stButton, [data-testid="stHeader"], #MainMenu {
+            display: none !important;
+        }
+
+        * {
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+            opacity: 1 !important;
         }
     }
     </style>
 """, unsafe_allow_html=True)
+
+# 3. LÓGICA DEL BOTÓN
+if 'print_request' not in st.session_state:
+    st.session_state.print_request = False
+
+col_space, col_btn = st.columns([0.85, 0.15])
+with col_btn:
+    if st.button("📄 PDF Export"):
+        st.session_state.print_request = True
+
+if st.session_state.print_request:
+    js_code = """
+        <script>
+            window.parent.document.activeElement.blur();
+            setTimeout(function() {
+                window.parent.print();
+            }, 1000);
+        </script>
+    """
+    st.components.v1.html(js_code, height=0)
+    st.session_state.print_request = False
 
 # --- 5. MAIN LOGIC AND FLUX ---
 st.sidebar.header("Datenquelle")
@@ -460,7 +496,7 @@ elif nav == "Benchmark":
                 serie_a_mostrar = data.iloc[0]
                 r_principal = serie_a_mostrar[score_cols].values.flatten().tolist()
                 score_actual = serie_a_mostrar['Maturity_Score']
-                nombre_principal = 'Ihr Ergebnis'
+                nombre_principal = 'Ihr Antwort'
                 st.button("Zurück zum allgemeinen Benchmark", on_click=reset_benchmark)
             else:
                 st.error("ID nicht gefunden.")
@@ -521,27 +557,42 @@ elif nav == "Benchmark":
         # --- DETAILED TABLE ---
         st.divider()
         st.subheader("🚦 Item-Performance")
-        dim_key = st.selectbox("Dimension auswählen:", list(CONFIG_WEIGHTS.keys()),
-                               format_func=lambda x: CONFIG_WEIGHTS[x]['name_de'])
 
-        items_list = []
-        for i_id, i_info in CONFIG_WEIGHTS[dim_key]['items'].items():
-            val_grupo = float(df_filtered[i_info['ls_code']].mean())
-            row = {"Item": i_info['name_de'], "Ø Global": val_grupo}
-            if st.session_state.view_mode == 'individual':
-                row["Ihr Ergebnis"] = float(serie_a_mostrar[i_info['ls_code']])
-            items_list.append(row)
+        # Iteramos por todas las dimensiones de tu configuración
+        for dim_id, dim_info in CONFIG_WEIGHTS.items():
+            # Usamos HTML para centrar, poner en itálica y dar un color gris oscuro profesional
+            st.markdown(
+                f"""
+                <div style="text-align: center; margin-top: 20px; margin-bottom: 10px;">
+                    <i style="color: #555555; font-size: 1.1em;">{dim_info['name_de']}</i>
+                </div>
+                """,
+                unsafe_allow_html=True
+            )
 
-        df_p = pd.DataFrame(items_list)
-        format_dict = {"Ø Global": "{:.2f}"}
-        if "Ihr Ergebnis" in df_p.columns: format_dict["Ihr Ergebnis"] = "{:.2f}"
+            items_list = []
+            for i_id, i_info in dim_info['items'].items():
+                val_grupo = float(df_filtered[i_info['ls_code']].mean())
+                row = {"Item": i_info['name_de'], "Ø Global": val_grupo}
 
-        st.dataframe(
-            df_p.style.apply(
-                lambda row: ['background-color: #d4edda' if (row['Ihr Ergebnis'] if 'Ihr Ergebnis' in row else row['Ø Global']) >= 4
-                             else 'background-color: #f8d7da'] * len(row), axis=1
-            ).format(format_dict), width="stretch"
-        )
+                if st.session_state.view_mode == 'individual':
+                    row["Ihr Antwort"] = float(serie_a_mostrar[i_info['ls_code']])
+                items_list.append(row)
+
+            df_p = pd.DataFrame(items_list)
+
+            # Configuración de formato
+            format_dict = {"Ø Global": "{:.2f}"}
+            if "Ihr Antwort" in df_p.columns:
+                format_dict["Ihr Antwort"] = "{:.2f}"
+
+            # Renderizamos la tabla
+            st.table(
+                df_p.style.apply(
+                    lambda row: ['background-color: #d4edda' if (row.get('Ihr Antwort', row['Ø Global'])) >= 4
+                                 else 'background-color: #f8d7da'] * len(row), axis=1
+                ).format(format_dict)
+            )
         # --- ANTWORTEN ---
         st.divider()
         st.subheader("🎯 Ihre Antwort")
