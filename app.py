@@ -127,7 +127,7 @@ if 'print_request' not in st.session_state:
 
 col_space, col_btn = st.columns([0.85, 0.15])
 with col_btn:
-    if st.button("📄 PDF Export"):
+    if st.button("📄 Print"):
         st.session_state.print_request = True
 
 if st.session_state.print_request:
@@ -558,9 +558,8 @@ elif nav == "Benchmark":
         st.divider()
         st.subheader("🚦 Item-Performance")
 
-        # Iteramos por todas las dimensiones de tu configuración
         for dim_id, dim_info in CONFIG_WEIGHTS.items():
-            # Usamos HTML para centrar, poner en itálica y dar un color gris oscuro profesional
+
             st.markdown(
                 f"""
                 <div style="text-align: center; margin-top: 20px; margin-bottom: 10px;">
@@ -581,7 +580,6 @@ elif nav == "Benchmark":
 
             df_p = pd.DataFrame(items_list)
 
-            # Configuración de formato
             format_dict = {"Ø Global": "{:.2f}"}
             if "Ihr Antwort" in df_p.columns:
                 format_dict["Ihr Antwort"] = "{:.2f}"
