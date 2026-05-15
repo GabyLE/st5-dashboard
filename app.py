@@ -127,7 +127,7 @@ if 'print_request' not in st.session_state:
 
 col_space, col_btn = st.columns([0.85, 0.15])
 with col_btn:
-    if st.button("📄 Print"):
+    if st.button("📄 Drucken"):
         st.session_state.print_request = True
 
 if st.session_state.print_request:
